@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "freight-agents",
+    "freight-agents-agentcore",
     "freight-agents-llm",
 ]
 
@@ -142,6 +143,21 @@ dev = [
     { name = "pre-commit", specifier = ">=4" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "ruff", specifier = ">=0.8" },
+]
+
+[[package]]
+name = "freight-agents-agentcore"
+version = "0.1.0"
+source = { editable = "packages/agentcore" }
+dependencies = [
+    { name = "freight-agents-llm" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "pydantic", specifier = ">=2.7" },
 ]
 
 [[package]]

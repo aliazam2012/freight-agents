@@ -17,7 +17,9 @@ lint:
 	$(UV) run --all-packages ruff format --check .
 
 types:
-	MYPYPATH=$(MYPYPATH) $(UV) run --all-packages mypy -p freight_agents
+	# Every package directory by path: `-p freight_agents` sees only the first
+	# directory of a namespace package spread over several source roots.
+	MYPYPATH=$(MYPYPATH) $(UV) run --all-packages mypy $(addsuffix /freight_agents,$(SRC_DIRS))
 
 test:
 	$(UV) run --all-packages pytest
