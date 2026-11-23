@@ -1,0 +1,14 @@
+[project]
+name = "freight-agents-llm"
+version = "0.1.0"
+description = "Provider-neutral model interface, adapters, a scripted model and recorded runs"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.7"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freight_agents"]
