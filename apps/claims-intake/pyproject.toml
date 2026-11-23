@@ -1,0 +1,31 @@
+[project]
+name = "freight-agents-claims-intake"
+version = "0.1.0"
+description = "Claim email in, validated claim case out, with a person approving anything sent"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "freight-agents-llm",
+    "freight-agents-agentcore",
+    "freight-agents-statecore",
+    "freight-agents-knowledge",
+    "freight-agents-integrations",
+]
+
+[project.scripts]
+freight-claims = "freight_agents.claims_intake.cli:main"
+
+[tool.uv.sources]
+freight-agents-llm = { workspace = true }
+freight-agents-agentcore = { workspace = true }
+freight-agents-statecore = { workspace = true }
+freight-agents-knowledge = { workspace = true }
+freight-agents-integrations = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freight_agents"]
