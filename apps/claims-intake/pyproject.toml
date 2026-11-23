@@ -11,6 +11,7 @@ dependencies = [
     "freight-agents-statecore",
     "freight-agents-knowledge",
     "freight-agents-integrations",
+    "freight-agents-mcp",
 ]
 
 [project.scripts]
@@ -22,6 +23,7 @@ freight-agents-agentcore = { workspace = true }
 freight-agents-statecore = { workspace = true }
 freight-agents-knowledge = { workspace = true }
 freight-agents-integrations = { workspace = true }
+freight-agents-mcp = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]

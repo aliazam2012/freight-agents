@@ -56,8 +56,11 @@ def main(argv: list[str] | None = None) -> int:
     show = commands.add_parser("show", help="print a case and its history")
     show.add_argument("case_id")
 
+    serve = commands.add_parser("mcp", help="serve the claims tools over MCP on stdio")
+    serve.add_argument("--tms", type=Path, required=True)
+
     # Accept --state after the subcommand too, as people type it.
-    for sub in (run, approve, show, commands.choices["pending"]):
+    for sub in (run, approve, show, serve, commands.choices["pending"]):
         sub.add_argument("--state", type=Path, default=argparse.SUPPRESS)
 
     args = parser.parse_args(argv)
@@ -71,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
             when = event.at.isoformat()
             print(f"  {event.seq:>3}  {when}  {event.type:<16} {detail}  ({event.actor})")
         return 0
+
+    if args.command == "mcp":
+        return _serve_mcp(ClaimsIntake(model=None, tms=FixtureTms(args.tms), stores=stores))
 
     if args.command == "pending":
         for item in stores.approvals.pending():
@@ -98,6 +104,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{name}: {usage.input_tokens} input and {usage.output_tokens} output tokens")
     priced = "not priced" if intake.meter.unpriced else f"${intake.meter.total_usd:.4f}"
     print(f"cost: {priced}")
+    return 0
+
+
+def _serve_mcp(intake: ClaimsIntake) -> int:
+    import anyio
+    from mcp.server.stdio import stdio_server
+
+    from .mcp_server import build_claims_server
+
+    server = build_claims_server(intake)
+
+    async def serve() -> None:
+        async with stdio_server() as (read, write):
+            await server.run(read, write, server.create_initialization_options())
+
+    anyio.run(serve)
     return 0
 
 
