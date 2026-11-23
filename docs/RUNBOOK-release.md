@@ -18,8 +18,8 @@
 
 Model results come from a recorded run, never from memory. Live calls cost money: get the owner's approval and an estimate first.
 
-1. Record a sample of 3 golden cases with the chosen model and read the token counts; estimate the full run from them.
-2. Record the full golden set into `apps/claims-intake/evals/cassettes/`.
+1. Record a sample and read the projection: `make record ARGS="--limit 3 --max-usd 1"` prints tokens and dollars per case and the projected cost of all 36.
+2. With the owner's approval of that projection, record the full set under the approved cap: `make record ARGS="--max-usd 6"`. Recording stops before it passes the cap.
 3. `make eval ARGS="--mode recorded --report"` and commit the cassettes and the dated report.
 4. Update the README's Results section from that report only.
 

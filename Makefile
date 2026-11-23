@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test data eval demo purity audit
+.PHONY: setup check lint types test data eval demo purity audit record
 
 setup:
 	$(UV) sync --all-packages
@@ -42,3 +42,8 @@ audit:
 	$(UV) export --all-packages --no-emit-workspace --format requirements-txt -q -o .audit-requirements.txt
 	$(UV) tool run --python 3.12 pip-audit==2.9.0 -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off
 	rm -f .audit-requirements.txt
+
+# Spends money: records live model turns. Needs ANTHROPIC_API_KEY or an `ant auth login` profile.
+# Example: make record ARGS="--limit 3 --max-usd 1"
+record:
+	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(['--mode', 'record', *sys.argv[1:]]))" $(ARGS)
