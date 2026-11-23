@@ -104,6 +104,13 @@ class ApprovalQueue:
         ).rowcount
         return bool(changed)
 
+    def release(self, approval_id: str) -> None:
+        """Hand a used approval back when the approved call failed, so it can be retried."""
+        self._db.execute(
+            "update approvals set status = 'approved' where id = ? and status = 'used'",
+            (approval_id,),
+        )
+
     def status(self, approval_id: str) -> str:
         row = self._db.execute(
             "select status from approvals where id = ?", (approval_id,)

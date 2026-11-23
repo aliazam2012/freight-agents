@@ -203,7 +203,11 @@ class ClaimsIntake:
         approval = self.stores.approvals.get(approval_id)
         if approval.case_id is None:
             raise LookupError(f"approval {approval_id} is not tied to a case")
-        self.stores.approvals.approve(approval_id, approver)
+        status = self.stores.approvals.status(approval_id)
+        if status == "pending":
+            self.stores.approvals.approve(approval_id, approver)
+        elif status != "approved":  # an approved send that failed earlier is retried
+            raise LookupError(f"approval {approval_id} is {status}, not pending")
         case = self.stores.engine.view(approval.case_id)
         record = case.data["email"]
         registry, pre, post = self._toolkit(approval.case_id, record, [approval.tool])
@@ -211,6 +215,7 @@ class ClaimsIntake:
         call = ToolCall(id=f"approved-{approval_id}", name=approval.tool, args=approval.args)
         outcome = run_tool(call, registry, pre, post, ctx, self.stores.audit)
         if outcome.status != "ok":
+            self.stores.approvals.release(approval_id)
             raise RuntimeError(f"approved send did not run: {outcome.code} {outcome.reason}")
         sent = (outcome.output or {}).get("message_id")
         self.stores.engine.fire(

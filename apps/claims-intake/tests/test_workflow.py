@@ -100,3 +100,31 @@ def test_show_prints_state_and_history(make_intake, tmp_path: Path) -> None:  # 
     text = out.getvalue()
     assert "ready_to_file" in text
     assert "triage_claim" in text
+
+
+class FlakyTransport:
+    """Fails the first send, like a mail server that drops one connection."""
+
+    def __init__(self, inner) -> None:  # type: ignore[no-untyped-def]
+        self.inner = inner
+        self.calls = 0
+
+    def send(self, **kwargs: str) -> str:
+        self.calls += 1
+        if self.calls == 1:
+            raise ConnectionError("mail server unavailable")
+        return str(self.inner.send(**kwargs))
+
+
+def test_a_failed_send_keeps_the_approval_for_a_retry(make_intake, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(INCOMPLETE) + draft())
+    intake.stores.transport = FlakyTransport(intake.stores.transport)
+    intake.process(email("4 chairs broken on PRO 7741-2209."))
+    approval_id = intake.stores.approvals.pending()[0].id
+    with pytest.raises(RuntimeError, match="mail server unavailable"):
+        intake.approve(approval_id, approver="ali")
+    assert intake.stores.approvals.status(approval_id) == "approved"
+    case = intake.approve(approval_id, approver="ali")
+    assert case.state == "awaiting_reply"
+    assert len(_sent(tmp_path)) == 1
+    assert intake.stores.approvals.status(approval_id) == "used"
