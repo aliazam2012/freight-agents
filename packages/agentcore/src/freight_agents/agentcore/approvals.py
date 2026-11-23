@@ -167,6 +167,14 @@ class AuditLog:
             )"""
         )
 
+    def rows(self, tool: str | None = None) -> list[dict[str, Any]]:
+        query = "select at, run_id, agent, case_id, tool, args_hash, status, code from audit"
+        params: tuple[str, ...] = ()
+        if tool is not None:
+            query, params = query + " where tool = ?", (tool,)
+        names = ("at", "run_id", "agent", "case_id", "tool", "args_hash", "status", "code")
+        return [dict(zip(names, row, strict=True)) for row in self._db.execute(query, params)]
+
     def record(
         self,
         *,
