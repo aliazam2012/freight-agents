@@ -11,6 +11,7 @@ members = [
     "freight-agents",
     "freight-agents-agentcore",
     "freight-agents-llm",
+    "freight-agents-statecore",
     "freight-agents-telemetry",
 ]
 
@@ -222,6 +223,11 @@ requires-dist = [
     { name = "openai", specifier = ">=1.60" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
+
+[[package]]
+name = "freight-agents-statecore"
+version = "0.1.0"
+source = { editable = "packages/statecore" }
 
 [[package]]
 name = "freight-agents-telemetry"
