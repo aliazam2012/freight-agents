@@ -14,6 +14,7 @@ Freight operations run on email: claims, load tenders, carrier disputes. An agen
 ## Table of Contents
 
 - [What It Does](#what-it-does)
+- [Skills Shown](#skills-shown)
 - [How It Works](#how-it-works)
 - [Applications](#applications)
 - [Results](#results)
@@ -35,6 +36,28 @@ Freight operations run on email: claims, load tenders, carrier disputes. An agen
 - **Any model, same behavior.** One interface with adapters for the Anthropic Messages API and the OpenAI Responses API; a scripted model and record-and-replay for tests.
 - **Measured, not claimed.** A golden set with deterministic graders gates every change in CI, including red-team cases where the model falls for an injection on purpose and the guards must still hold.
 - **Sourced domain rules.** Claim rules come from 49 CFR Part 370 and 49 U.S.C. 14706, read at the source, retrieved with citations.
+
+## Skills Shown
+
+Each row points at the code or the public issue that proves it. Shipped means merged, tested and gated in CI; planned means an issue with acceptance criteria.
+
+| Skill | Where it shows | Status |
+|---|---|---|
+| Evaluation as the release gate | [golden set and floors](apps/claims-intake/evals/), `make eval` in CI, red-team cases, [reports](apps/claims-intake/evals/reports/) | Shipped; real-model results in [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
+| Reliable agent workflows | [state engine](packages/statecore/), idempotent writes and the approval queue in [agentcore](packages/agentcore/) | Shipped |
+| Defense against prompt injection | taint and recipient guards, [threat model](docs/THREAT-MODEL.md) | Shipped |
+| MCP with write safety | [MCP bridge](packages/mcp/), [claims MCP server](apps/claims-intake/src/freight_agents/claims_intake/mcp_server.py), [ADR-0006](docs/adr/ADR-0006-mcp-behind-the-hooks.md) | Shipped |
+| Provider-neutral models | [Anthropic and OpenAI adapters](packages/llm/), [ADR-0004](docs/adr/ADR-0004-provider-neutral-models.md) | Shipped; live runs in [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
+| Coding agents in the repository | [AGENTS.md](AGENTS.md), Claude Code and Codex setup above | Shipped |
+| Observability and cost control | [telemetry](packages/telemetry/), `--trace`, budgets, cost and latency per case | Shipped |
+| Sourced domain knowledge | [claim rules with citations](packages/knowledge/) | Shipped |
+| Clean room and supply chain | purity gate, private denylist, gitleaks, pip-audit, CodeQL, pinned actions | Shipped |
+| Running an engineering team | [ADRs](docs/adr/), [review checklist](docs/CHECKLIST-code-review.md), [release runbook](docs/RUNBOOK-release.md), [postmortem template](docs/TPL-postmortem.md), [milestones](https://github.com/aliazam2012/freight-agents/milestones) | Shipped |
+| Vision AI | damage-assessor | Planned, [v0.2](https://github.com/aliazam2012/freight-agents/issues/11) |
+| Integrations and durable timers | carrier-filing | Planned, [v0.3](https://github.com/aliazam2012/freight-agents/issues/12) |
+| Document AI (PDF, EDI) | tms-orders | Planned, [v0.4](https://github.com/aliazam2012/freight-agents/issues/13) |
+| Agents in a team's workflow | incident-bot (Slack) | Planned, [v0.5](https://github.com/aliazam2012/freight-agents/issues/14) |
+| Classic machine learning | volume-forecast | Planned, [v0.6](https://github.com/aliazam2012/freight-agents/issues/15) |
 
 ## How It Works
 
