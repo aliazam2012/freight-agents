@@ -42,7 +42,6 @@ _STOPWORDS = frozenset(
         "what",
         "when",
         "with",
-        "does",
         "do",
         "can",
     ]
