@@ -212,8 +212,8 @@ class ClaimsIntake:
             raise LookupError(f"approval {approval_id} is {status}, not pending")
         case = self.stores.engine.view(approval.case_id)
         record = case.data["email"]
-        registry, pre, post = self._toolkit(approval.case_id, record, [approval.tool])
-        ctx = self._context(f"approve-{approval_id}", f"person:{approver}", case, record)
+        registry, pre, post = self.toolkit(approval.case_id, record, [approval.tool])
+        ctx = self.context(f"approve-{approval_id}", f"person:{approver}", case, record)
         call = ToolCall(id=f"approved-{approval_id}", name=approval.tool, args=approval.args)
         outcome = run_tool(call, registry, pre, post, ctx, self.stores.audit)
         if outcome.status != "ok":
@@ -251,15 +251,15 @@ class ClaimsIntake:
     ) -> AgentResult:
         if self.model is None:
             raise RuntimeError("no model configured; this command needs one")
-        registry, pre, post = self._toolkit(case_id, record, tool_names)
+        registry, pre, post = self.toolkit(case_id, record, tool_names)
         agent = Agent(name, self.model, registry, system, pre, post, self.stores.audit, self.budget)
         case = self.stores.engine.view(case_id)
-        ctx = self._context(uuid.uuid4().hex[:12], f"agent:{name}", case, record)
+        ctx = self.context(uuid.uuid4().hex[:12], f"agent:{name}", case, record)
         result = agent.run([TextPart(text=user_text or render_email(record))], ctx)
         self.meter.add(self.model.name, result.usage)
         return result
 
-    def _toolkit(
+    def toolkit(
         self, case_id: str, record: dict[str, Any], tool_names: list[str]
     ) -> tuple[ToolRegistry, list[Any], list[Any]]:
         received = datetime.fromisoformat(record["date"]) if record["date"] else self.clock()
@@ -284,7 +284,7 @@ class ClaimsIntake:
         post = [idem_post, redact_pii, cap_size()]
         return ToolRegistry([tools[n] for n in tool_names]), pre, post
 
-    def _context(
+    def context(
         self, run_id: str, agent: str, case: CaseView, record: dict[str, Any]
     ) -> HookContext:
         return HookContext(

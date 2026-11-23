@@ -18,6 +18,7 @@ Freight operations run on email: claims, load tenders, carrier disputes. An agen
 - [Applications](#applications)
 - [Results](#results)
 - [Run With a Real Model](#run-with-a-real-model)
+- [Use It From Claude Code or Codex](#use-it-from-claude-code-or-codex)
 - [Layout](#layout)
 - [Requirements](#requirements)
 - [Tests](#tests)
@@ -64,6 +65,26 @@ uv run freight-claims --state var/live pending
 ```
 
 For OpenAI, pass `--model openai --model-name <model id>` with `OPENAI_API_KEY` set.
+
+## Use It From Claude Code or Codex
+
+`freight-claims mcp` serves the claims tools over MCP: read a case, list emails waiting for approval, look up a shipment, search the claim rules, and ask for missing details. That last one runs through the same hooks as the agents and stops in the approval queue; no MCP tool approves or sends.
+
+Claude Code:
+
+```bash
+claude mcp add freight-claims -- uv run --directory /path/to/freight-agents freight-claims --state var/demo mcp --tms data/demo/tms.json
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.freight-claims]
+command = "uv"
+args = ["run", "--directory", "/path/to/freight-agents", "freight-claims", "--state", "var/demo", "mcp", "--tms", "data/demo/tms.json"]
+```
+
+Run `make demo` first so there are cases to read.
 
 ## Layout
 
