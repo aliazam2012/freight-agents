@@ -4,10 +4,11 @@ version = "0.1.0"
 description = "Typed tools, pre and post hooks, and the agent loop"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.7", "freight-agents-llm"]
+dependencies = ["pydantic>=2.7", "freight-agents-llm", "freight-agents-telemetry"]
 
 [tool.uv.sources]
 freight-agents-llm = { workspace = true }
+freight-agents-telemetry = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]

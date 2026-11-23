@@ -154,12 +154,14 @@ version = "0.1.0"
 source = { editable = "packages/agentcore" }
 dependencies = [
     { name = "freight-agents-llm" },
+    { name = "freight-agents-telemetry" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "freight-agents-telemetry", editable = "packages/telemetry" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
 
