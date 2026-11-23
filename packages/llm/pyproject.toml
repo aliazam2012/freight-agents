@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Provider-neutral model interface, adapters, a scripted model and recorded runs"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.7", "anthropic>=1.0"]
+dependencies = ["pydantic>=2.7", "anthropic>=2.0", "openai>=1.60"]
 
 [build-system]
 requires = ["hatchling>=1.25"]
