@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--model", choices=["replay", "anthropic", "openai"], default="replay")
     run.add_argument("--model-name")
     run.add_argument("--cassette", type=Path)
+    run.add_argument("--trace", type=Path, help="write OpenTelemetry spans to this file")
 
     commands.add_parser("pending", help="list sends waiting for approval")
 
@@ -84,11 +85,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sent; {case.case_id} is now {case.state}")
         return 0
 
+    if args.trace:
+        from freight_agents.telemetry.export import configure_tracing
+
+        configure_tracing(args.trace)
     model = _model(args.model, args.model_name, args.cassette)
     intake = ClaimsIntake(model=model, tms=FixtureTms(args.tms), stores=stores)
     for message in DirectoryInbox(args.inbox).messages():
         case = intake.process(message)
         print(f"{case.case_id}  {case.state:<14} {message.subject}")
+    for name, usage in intake.meter.by_model.items():
+        print(f"{name}: {usage.input_tokens} input and {usage.output_tokens} output tokens")
+    priced = "not priced" if intake.meter.unpriced else f"${intake.meter.total_usd:.4f}"
+    print(f"cost: {priced}")
     return 0
 
 

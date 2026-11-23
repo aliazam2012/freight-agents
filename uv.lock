@@ -300,12 +300,14 @@ source = { editable = "packages/telemetry" }
 dependencies = [
     { name = "freight-agents-llm" },
     { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "freight-agents-llm", editable = "packages/llm" },
     { name = "opentelemetry-api", specifier = ">=1.27" },
+    { name = "opentelemetry-sdk", specifier = ">=1.27" },
 ]
 
 [[package]]
