@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test data eval demo
+.PHONY: setup check lint types test data eval demo purity audit
 
 setup:
 	$(UV) sync --all-packages
@@ -32,3 +32,13 @@ eval:
 
 demo: data
 	$(UV) run --all-packages python -m freight_agents.claims_intake.demo
+
+purity:
+	python3 tools/purity.py .
+	python3 tools/check_links.py .
+
+# Audit the locked third-party dependencies (workspace packages excluded).
+audit:
+	$(UV) export --all-packages --no-emit-workspace --format requirements-txt -q -o .audit-requirements.txt
+	$(UV) tool run --python 3.12 pip-audit==2.9.0 -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off
+	rm -f .audit-requirements.txt

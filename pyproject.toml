@@ -36,5 +36,5 @@ explicit_package_bases = true
 warn_unreachable = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "apps"]
+testpaths = ["packages", "apps", "tools"]
 addopts = "-q --import-mode=importlib --strict-markers"
