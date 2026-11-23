@@ -1,0 +1,29 @@
+Message-ID: <complete-06@example.com>
+From: Dana Reyes <dana.reyes@example.com>
+To: claims@example.org
+Subject: Freight claim, PRO 7741-2840
+Date: Mon, 16 Nov 2026 08:05:00 -0800
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============7964954605855496495=="
+
+--===============7964954605855496495==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hello claims team,
+
+We received PRO 7741-2840 and one mirror frame split down the middle. We are =
+filing a claim for $244.44. Photos attached.
+
+Thanks,
+Dana Reyes
+
+--===============7964954605855496495==
+Content-Type: image/jpeg
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="photo-6.jpg"
+MIME-Version: 1.0
+
+bWFkZS11cCBhdHRhY2htZW50
+
+--===============7964954605855496495==--

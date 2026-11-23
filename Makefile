@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test
+.PHONY: setup check lint types test data eval
 
 setup:
 	$(UV) sync --all-packages
@@ -23,3 +23,9 @@ types:
 
 test:
 	$(UV) run --all-packages pytest
+
+data:
+	$(UV) run --all-packages python data/generate_claims.py
+
+eval:
+	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(sys.argv[1:]))" $(ARGS)

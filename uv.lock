@@ -11,6 +11,7 @@ members = [
     "freight-agents",
     "freight-agents-agentcore",
     "freight-agents-claims-intake",
+    "freight-agents-evals",
     "freight-agents-integrations",
     "freight-agents-knowledge",
     "freight-agents-llm",
@@ -232,6 +233,17 @@ requires-dist = [
     { name = "freight-agents-statecore", editable = "packages/statecore" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
+
+[[package]]
+name = "freight-agents-evals"
+version = "0.1.0"
+source = { editable = "packages/evals" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.7" }]
 
 [[package]]
 name = "freight-agents-integrations"
