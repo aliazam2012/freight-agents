@@ -7,15 +7,12 @@ Hooks use this to stop untrusted text from steering a write or a send.
 
 from __future__ import annotations
 
-import re
-
-_SPACE = re.compile(r"\s+")
 # Shorter fragments match too much ordinary text to mean anything.
 MIN_FRAGMENT = 6
 
 
 def _norm(value: str) -> str:
-    return _SPACE.sub(" ", value).strip().lower()
+    return " ".join(value.split()).lower()
 
 
 class TaintSet:

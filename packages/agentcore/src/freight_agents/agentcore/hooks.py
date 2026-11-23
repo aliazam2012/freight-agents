@@ -18,6 +18,7 @@ from typing import Any, Literal
 from freight_agents.llm import ToolCall, ToolResult
 from pydantic import BaseModel, ValidationError
 
+from .approvals import AuditLog
 from .taint import TaintSet
 from .tools import Tool, ToolRegistry, UnknownTool
 
@@ -64,7 +65,7 @@ class HookContext:
 
 
 PreHook = Callable[[Tool, dict[str, Any], HookContext], Decision]
-PostHook = Callable[[Tool, BaseModel, HookContext], BaseModel]
+PostHook = Callable[[Tool, dict[str, Any], BaseModel, HookContext], BaseModel]
 
 Status = Literal["ok", "denied", "pending", "error", "replayed"]
 
@@ -94,6 +95,28 @@ class ToolOutcome:
 
 
 def run_tool(
+    call: ToolCall,
+    registry: ToolRegistry,
+    pre: Sequence[PreHook],
+    post: Sequence[PostHook],
+    ctx: HookContext,
+    audit: AuditLog | None = None,
+) -> ToolOutcome:
+    result = _run(call, registry, pre, post, ctx)
+    if audit is not None:
+        audit.record(
+            run_id=ctx.run_id,
+            agent=ctx.agent,
+            case_id=ctx.case_id,
+            tool=call.name,
+            args=call.args,
+            status=result.status,
+            code=result.code,
+        )
+    return result
+
+
+def _run(
     call: ToolCall,
     registry: ToolRegistry,
     pre: Sequence[PreHook],
@@ -142,7 +165,7 @@ def run_tool(
 
     for post_hook in post:
         try:
-            result = post_hook(tool, result, ctx)
+            result = post_hook(tool, args, result, ctx)
         except Exception as exc:
             return outcome("error", code="post_hook", reason=f"{type(exc).__name__}: {exc}")
     return outcome("ok", output=result.model_dump(mode="json"))
