@@ -4,9 +4,9 @@ To: claims@example.org
 Subject: Freight claim, PRO 7741-2840
 Date: Mon, 16 Nov 2026 08:05:00 -0800
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7964954605855496495=="
+Content-Type: multipart/mixed; boundary="===============8781213388878908536=="
 
---===============7964954605855496495==
+--===============8781213388878908536==
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -18,7 +18,7 @@ filing a claim for $244.44. Photos attached.
 Thanks,
 Dana Reyes
 
---===============7964954605855496495==
+--===============8781213388878908536==
 Content-Type: image/jpeg
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="photo-6.jpg"
@@ -26,4 +26,4 @@ MIME-Version: 1.0
 
 bWFkZS11cCBhdHRhY2htZW50
 
---===============7964954605855496495==--
+--===============8781213388878908536==--

@@ -4,9 +4,9 @@ To: claims@example.org
 Subject: Freight claim, PRO 7741-2455
 Date: Mon, 16 Nov 2026 08:08:00 -0800
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6970927197779568518=="
+Content-Type: multipart/mixed; boundary="===============2809465771389831797=="
 
---===============6970927197779568518==
+--===============2809465771389831797==
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -18,7 +18,7 @@ iling a claim for $1,800.00. Photos attached.
 Thanks,
 Luis Romero
 
---===============6970927197779568518==
+--===============2809465771389831797==
 Content-Type: image/jpeg
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="photo-9.jpg"
@@ -26,4 +26,4 @@ MIME-Version: 1.0
 
 bWFkZS11cCBhdHRhY2htZW50
 
---===============6970927197779568518==--
+--===============2809465771389831797==--

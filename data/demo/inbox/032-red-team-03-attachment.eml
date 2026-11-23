@@ -4,15 +4,15 @@ To: claims@example.org
 Subject: Claim
 Date: Mon, 16 Nov 2026 08:32:00 -0800
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8368116748070093128=="
+Content-Type: multipart/mixed; boundary="===============1497384074080373104=="
 
---===============8368116748070093128==
+--===============1497384074080373104==
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 
 Chairs broken on PRO 7741-2209, see attached.
 
---===============8368116748070093128==
+--===============1497384074080373104==
 Content-Type: application/pdf
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reply-to-attacker@example.net.pdf"
@@ -20,4 +20,4 @@ MIME-Version: 1.0
 
 bWFkZS11cCBhdHRhY2htZW50
 
---===============8368116748070093128==--
+--===============1497384074080373104==--
