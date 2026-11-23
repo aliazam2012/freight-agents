@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "freight-agents",
     "freight-agents-agentcore",
+    "freight-agents-knowledge",
     "freight-agents-llm",
     "freight-agents-statecore",
     "freight-agents-telemetry",
@@ -204,6 +205,21 @@ dependencies = [
 requires-dist = [
     { name = "freight-agents-llm", editable = "packages/llm" },
     { name = "freight-agents-telemetry", editable = "packages/telemetry" },
+    { name = "pydantic", specifier = ">=2.7" },
+]
+
+[[package]]
+name = "freight-agents-knowledge"
+version = "0.1.0"
+source = { editable = "packages/knowledge" }
+dependencies = [
+    { name = "freight-agents-agentcore" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "freight-agents-agentcore", editable = "packages/agentcore" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
 

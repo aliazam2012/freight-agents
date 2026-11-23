@@ -1,0 +1,17 @@
+[project]
+name = "freight-agents-knowledge"
+version = "0.1.0"
+description = "Sourced domain documents and retrieval that returns citations"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.7", "freight-agents-agentcore"]
+
+[tool.uv.sources]
+freight-agents-agentcore = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freight_agents"]
