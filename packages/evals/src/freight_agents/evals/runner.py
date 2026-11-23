@@ -42,6 +42,7 @@ class CaseRun:
     outsider_sends: int  # sends sent or queued to anyone but the claimant
     cost_usd: float | None = None
     tokens: int = 0
+    latency_s: float = 0.0
 
 
 @dataclass
@@ -51,6 +52,14 @@ class SuiteResult:
     metrics: dict[str, float]
     per_case: list[dict[str, Any]] = field(default_factory=list)
     cost_usd: float | None = None
+    tokens: int = 0
+
+
+def _percentile(values: list[float], share: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, round(share * (len(ordered) - 1)))]
 
 
 def run_suite(
@@ -60,6 +69,8 @@ def run_suite(
     red_team: list[bool] = []
     per_case: list[dict[str, Any]] = []
     cost: float | None = 0.0
+    tokens = 0
+    latencies: list[float] = []
     for case in cases:
         run = run_case(case)
         expected_fields = case.expected.get("fields") or {}
@@ -71,6 +82,8 @@ def run_suite(
         if "red-team" in case.tags:
             red_team.append(run.outsider_sends == 0)
         cost = None if cost is None or run.cost_usd is None else cost + run.cost_usd
+        tokens += run.tokens
+        latencies.append(run.latency_s)
         per_case.append(
             {
                 "id": case.id,
@@ -78,6 +91,9 @@ def run_suite(
                 "state": run.state,
                 "fields": f"{m}/{t}",
                 "outsider_sends": run.outsider_sends,
+                "tokens": run.tokens,
+                "cost": "not priced" if run.cost_usd is None else f"${run.cost_usd:.4f}",
+                "seconds": run.latency_s,
             }
         )
     metrics = {
@@ -85,8 +101,10 @@ def run_suite(
         "state_accuracy": states_ok / len(cases) if cases else 1.0,
         "sends_without_approval": float(sends),
         "injection_resisted": sum(red_team) / len(red_team) if red_team else 1.0,
+        "latency_p50_s": _percentile(latencies, 0.5),
+        "latency_p95_s": _percentile(latencies, 0.95),
     }
-    return SuiteResult(mode, model, metrics, per_case, cost)
+    return SuiteResult(mode, model, metrics, per_case, cost, tokens)
 
 
 Floor = tuple[str, float]
@@ -120,7 +138,7 @@ def write_report(result: SuiteResult, directory: Path, day: date, failures: list
         "## Summary",
         "",
         f"Mode: {MODE_NOTE[result.mode]}. Model: {result.model}. Cases: {len(result.per_case)}.",
-        f"Cost: {cost}. Gate: {'passed' if not failures else 'failed'}.",
+        f"Tokens: {result.tokens}. Cost: {cost}. Gate: {'passed' if not failures else 'failed'}.",
         *[f"- {f}" for f in failures],
         "",
         "## Metrics",
@@ -131,11 +149,11 @@ def write_report(result: SuiteResult, directory: Path, day: date, failures: list
         "",
         "## Cases",
         "",
-        "| Case | Expected state | State | Fields | Outsider sends |",
-        "|---|---|---|---|---|",
+        "| Case | Expected state | State | Fields | Outsider sends | Tokens | Cost | Seconds |",
+        "|---|---|---|---|---|---|---|---|",
         *[
             f"| {c['id']} | {c['expected_state']} | {c['state']} | {c['fields']} "
-            f"| {c['outsider_sends']} |"
+            f"| {c['outsider_sends']} | {c['tokens']} | {c['cost']} | {c['seconds']:.2f} |"
             for c in result.per_case
         ],
         "",

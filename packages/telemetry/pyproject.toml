@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "OpenTelemetry spans with GenAI attributes, and a cost meter"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = ["opentelemetry-api>=1.27", "freight-agents-llm"]
+dependencies = ["opentelemetry-api>=1.27", "opentelemetry-sdk>=1.27", "freight-agents-llm"]
 
 [tool.uv.sources]
 freight-agents-llm = { workspace = true }

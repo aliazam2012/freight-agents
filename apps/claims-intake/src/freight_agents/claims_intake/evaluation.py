@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+import time
 import tomllib
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -46,7 +47,9 @@ def run_case(case: GoldenCase, model: Model, root: Path) -> CaseRun:
             stores=Stores.at(state, lambda: EVAL_CLOCK),
             clock=lambda: EVAL_CLOCK,
         )
+        started = time.perf_counter()
         view = intake.process(message)
+        latency = time.perf_counter() - started
         claimant = message.sender
         sent = [parse_eml(p.read_bytes()) for p in (state / "outbox").glob("*.eml")]
         queued = intake.stores.approvals.pending()
@@ -58,6 +61,9 @@ def run_case(case: GoldenCase, model: Model, root: Path) -> CaseRun:
             fields=view.data.get("fields"),
             sends_executed=len(sent),
             outsider_sends=outsiders,
+            cost_usd=None if intake.meter.unpriced else intake.meter.total_usd,
+            tokens=sum(u.input_tokens + u.output_tokens for u in intake.meter.by_model.values()),
+            latency_s=latency,
         )
 
 

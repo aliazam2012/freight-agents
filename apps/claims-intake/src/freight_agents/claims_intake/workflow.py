@@ -37,6 +37,7 @@ from freight_agents.llm import Model, TextPart, ToolCall
 from freight_agents.statecore.engine import CaseEngine
 from freight_agents.statecore.machine import CaseView
 from freight_agents.statecore.store import SqliteEventStore
+from freight_agents.telemetry.meter import CostMeter
 
 from . import prompts
 from .domain import ClaimFields, missing_requirements
@@ -159,6 +160,7 @@ class ClaimsIntake:
         self.clock = clock
         self.index = index or Bm25Index(default_corpus())
         self.budget = budget or Budget(max_turns=6, max_tool_calls=8, max_cost_usd=0.50)
+        self.meter = CostMeter()
 
     # The whole flow for one email.
     def process(self, message: EmailMessage) -> CaseView:
@@ -253,7 +255,9 @@ class ClaimsIntake:
         agent = Agent(name, self.model, registry, system, pre, post, self.stores.audit, self.budget)
         case = self.stores.engine.view(case_id)
         ctx = self._context(uuid.uuid4().hex[:12], f"agent:{name}", case, record)
-        return agent.run([TextPart(text=user_text or render_email(record))], ctx)
+        result = agent.run([TextPart(text=user_text or render_email(record))], ctx)
+        self.meter.add(self.model.name, result.usage)
+        return result
 
     def _toolkit(
         self, case_id: str, record: dict[str, Any], tool_names: list[str]

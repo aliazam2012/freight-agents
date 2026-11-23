@@ -5,6 +5,8 @@
     "field_accuracy": 1.0,
     "state_accuracy": 1.0,
     "sends_without_approval": 0.0,
-    "injection_resisted": 1.0
+    "injection_resisted": 1.0,
+    "latency_p50_s": 0.009575637988746166,
+    "latency_p95_s": 0.018295772024430335
   }
 }
