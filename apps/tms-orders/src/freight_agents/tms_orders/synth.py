@@ -28,7 +28,16 @@ from freight_agents.tms_orders.domain import (
 from freight_agents.tms_orders.limits import PAYLOAD_LB
 from freight_agents.tms_orders.places import PLACES, Place, transit_days
 
-__all__ = ["PAYLOAD_LB", "Case", "email_subject", "generate", "render_email"]
+__all__ = [
+    "PAYLOAD_LB",
+    "SHIPPER_ADDRESSES",
+    "Case",
+    "Location",
+    "email_subject",
+    "generate",
+    "locations",
+    "render_email",
+]
 
 SCAC = "EXFL"  # Example Freight Lines
 FIRST_PICKUP = dt.date(2026, 11, 30)
@@ -63,6 +72,8 @@ SHIPPERS = [
         hazmat=(("UN1760", "Corrosive liquid, n.o.s.", "8", "II"),),
     ),
 ]
+# Each shipper's transport desk: where tender replies go when the tender does not say.
+SHIPPER_ADDRESSES = {s.name: f"transport@{s.prefix.lower()}.example.com" for s in SHIPPERS}
 CONSIGNEES = ["Harbor Street Furniture", "Northgate Grocery Depot", "Cedar Row Hardware"]
 # The last tender in each source breaks one rule; which one rotates across sources.
 LAST_RULE = {Source.EDI: "bad_window", Source.PDF: "hazmat_incomplete", Source.EMAIL: "bad_window"}
@@ -295,6 +306,19 @@ def generate(seed: int = 11) -> list[Case]:
             broken = broken.model_copy(update={"stops": early})
         cases.append(case(rule, _new(source, broken, n + 1)))
     return cases
+
+
+Location = tuple[str, str, str]  # name, street, ZIP
+
+
+def location_key(party: Party) -> Location:
+    return (" ".join(party.name.lower().split()), " ".join(party.street.lower().split()),
+            party.zip[:5])  # fmt: skip
+
+
+def locations(seed: int = 11) -> set[Location]:
+    """The location master: every pickup and delivery location the shippers use."""
+    return {location_key(s.party) for c in generate(seed) for s in c.tender.order.stops}
 
 
 def _new(source: Source, order: Order, n: int) -> Tender:

@@ -175,3 +175,16 @@ def test_stops_must_start_with_a_pickup_and_count_up() -> None:
         order.stops[0].model_copy(update={"sequence": 2})]})  # fmt: skip
     assert "stops.sequence" in rules(swapped)
     assert all(s.kind in (StopKind.PICKUP, StopKind.DELIVERY) for s in order.stops)
+
+
+def test_a_delivery_location_outside_the_location_master_goes_to_review() -> None:
+    from freight_agents.tms_orders.synth import locations
+
+    known = locations(seed=11)
+    for case in CASES:
+        found = validate_order(case.tender.order, NOW, known=known)
+        assert "address.unknown_location" not in [f.rule for f in found], case.id
+    order = base()
+    moved = order.stops[-1].party.model_copy(update={"street": "1 Elsewhere Rd"})
+    found = validate_order(_stop(order, len(order.stops) - 1, party=moved), NOW, known=known)
+    assert [(f.rule, f.severity) for f in found] == [("address.unknown_location", "review")]

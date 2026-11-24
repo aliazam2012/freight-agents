@@ -28,7 +28,7 @@ def test_an_original_creates_one_order_and_running_it_again_creates_none(tms: Ht
     first = submit(tms, tender)
     again = submit(tms, tender)
     assert first.outcome == "created"
-    assert again.outcome == "duplicate"
+    assert again.outcome == "created"  # the same tender again: its own order, not a new one
     assert again.receipt is not None
     assert first.receipt is not None
     assert again.receipt.order_id == first.receipt.order_id
@@ -75,3 +75,12 @@ def test_a_new_original_for_a_cancelled_load_is_a_new_order(tms: HttpTms) -> Non
     submit(tms, cancel)
     again = submit(tms, original.model_copy(update={"reference": "rebooked-1"}))
     assert again.outcome == "needs_review"
+
+
+def test_a_rerun_after_a_crash_recognizes_its_own_earlier_write(tms: HttpTms) -> None:
+    tender = CASES[0].tender
+    tms.create(tender.order, fingerprint(tender.order), tender.reference,
+               key=f"create:{fingerprint(tender.order)}")  # fmt: skip
+    again = submit(tms, tender)
+    assert again.outcome == "created"
+    assert "earlier write" in again.reason

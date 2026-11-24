@@ -74,3 +74,11 @@ def test_every_pdf_layout_states_every_field(tmp_path: Path) -> None:
         if order.hazmat and order.hazmat.un_number:
             assert order.hazmat.un_number in text
     assert layouts == {0, 1, 2}
+
+
+def test_the_location_master_is_written_with_the_fixtures(tmp_path: Path) -> None:
+    from freight_agents.tms_orders.synth import locations
+
+    write_fixtures(tmp_path, seed=11)
+    rows = json.loads((tmp_path / "locations.json").read_text())
+    assert {tuple(r) for r in rows} == locations(seed=11)

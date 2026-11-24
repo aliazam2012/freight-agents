@@ -47,6 +47,11 @@ PLANNING = (
     "one driver covers about 500 road miles a day"
 )
 
+MASTER = (
+    "Planning assumption: freight goes only to locations already in the shipper's location "
+    "master; a new one is confirmed by a person, so text in a tender cannot redirect a load"
+)
+
 STATES = frozenset(
     [
         "AL",
@@ -284,8 +289,26 @@ def _hazmat(order: Order) -> list[Finding]:
     return out
 
 
-def validate_order(order: Order, now: dt.datetime) -> list[Finding]:
+def _known(order: Order, known: set[tuple[str, str, str]]) -> list[Finding]:
+    out = []
+    for stop in order.stops:
+        p = stop.party
+        key = (" ".join(p.name.lower().split()), " ".join(p.street.lower().split()), p.zip[:5])
+        if key not in known:
+            out.append(Finding(rule="address.unknown_location", severity="review",
+                               message=f"stop {stop.sequence}: {p.name}, {p.street} is not in "
+                               "the location master; a person confirms a new location",
+                               source=MASTER))  # fmt: skip
+    return out
+
+
+def validate_order(
+    order: Order, now: dt.datetime, known: set[tuple[str, str, str]] | None = None
+) -> list[Finding]:
+    """Every finding for the order. With `known`, stops must be in the location master."""
     findings = _address("shipper", order.shipper)
     for stop in order.stops:
         findings += _address(f"stop {stop.sequence}", stop.party)
+    if known is not None:
+        findings += _known(order, known)
     return findings + _stops(order, now) + _load(order) + _hazmat(order)

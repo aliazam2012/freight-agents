@@ -32,6 +32,9 @@ def submit(tms: HttpTms, tender: Tender) -> SubmitResult:
 
     if tender.purpose == Purpose.ORIGINAL:
         if open_orders:
+            mine = [r for r in open_orders if r.tender_reference == tender.reference]
+            if mine:
+                return SubmitResult("created", mine[0], "recovered this tender's own earlier write")
             return SubmitResult("duplicate", open_orders[0], "an open order already has this load")
         if existing:
             return SubmitResult(

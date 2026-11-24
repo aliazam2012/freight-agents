@@ -15,7 +15,13 @@ from pathlib import Path
 from freight_agents.tms_orders.domain import Source
 from freight_agents.tms_orders.edi204 import write_204
 from freight_agents.tms_orders.ratecon import render_pdf
-from freight_agents.tms_orders.synth import Case, email_subject, generate, render_email
+from freight_agents.tms_orders.synth import (
+    Case,
+    email_subject,
+    generate,
+    locations,
+    render_email,
+)
 
 INBOX = "tenders@exfl.example.com"
 
@@ -70,4 +76,6 @@ def write_fixtures(root: Path, seed: int = 11) -> list[Case]:
             )
         )
     (root / "gold.jsonl").write_text("\n".join(lines) + "\n")
+    master = sorted(list(key) for key in locations(seed))
+    (root / "locations.json").write_text(json.dumps(master, indent=1) + "\n")
     return cases
