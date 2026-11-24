@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import html
 import json
+import re
 import secrets
 import sqlite3
 import threading
@@ -142,7 +143,13 @@ CLAIM_FORM = (
 )
 
 
-def create_app(scac: str, clock: Clock | None = None, db: str | Path = ":memory:") -> FastAPI:
+def create_app(
+    scac: str,
+    clock: Clock | None = None,
+    db: str | Path = ":memory:",
+    portal_without: tuple[str, ...] = (),
+) -> FastAPI:
+    """`portal_without` drops form fields by id, the way a carrier's redesign might."""
     app = FastAPI(
         title=f"Mock carrier claims ({scac})",
         version="0.1.0",
@@ -216,10 +223,11 @@ def create_app(scac: str, clock: Clock | None = None, db: str | Path = ":memory:
         rows = "".join(
             f"<tr><td class='number'>{html.escape(c.claim_number)}</td>"
             f"<td class='reference'>{html.escape(c.reference)}</td>"
-            f"<td class='status'>{c.status}</td></tr>"
+            f"<td class='status'>{c.status}</td>"
+            f"<td class='received'>{c.received_on.isoformat()}</td></tr>"
             for c in store.find(None)
         )
-        head = "<tr><th>Claim</th><th>Reference</th><th>Status</th></tr>"
+        head = "<tr><th>Claim</th><th>Reference</th><th>Status</th><th>Received</th></tr>"
         table = f"<table id='claims'>{head}{rows}</table>"
         return _page(
             "My claims", table + "<a href='/portal/claims/new' id='new-claim'>File a claim</a>"
@@ -229,7 +237,12 @@ def create_app(scac: str, clock: Clock | None = None, db: str | Path = ":memory:
     def new_claim(session: Annotated[str | None, Cookie()] = None) -> HTMLResponse:
         if not signed_in(session):
             return _page("Sign in", LOGIN_FORM)
-        return _page("File a claim", CLAIM_FORM)
+        form = CLAIM_FORM
+        for name in portal_without:
+            form = re.sub(
+                rf"<label>[^<]*<(?:input|select|textarea)[^>]*id='{name}'.*?</label>", "", form
+            )
+        return _page("File a claim", form)
 
     @app.post("/portal/claims", include_in_schema=False)
     def submit_claim(
@@ -259,7 +272,8 @@ def create_app(scac: str, clock: Clock | None = None, db: str | Path = ":memory:
         return _page(
             "Claim received",
             f"<p id='confirmation'>Claim number: {html.escape(out.claim_number)}</p>"
-            f"<p>Reference {html.escape(out.reference)}</p>",
+            f"<p>Reference {html.escape(out.reference)}</p>"
+            f"<p id='received'>Received on {out.received_on.isoformat()}</p>",
         )
 
     return app

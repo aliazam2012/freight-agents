@@ -16,6 +16,7 @@ dev = [
     "pytest>=8.3",
     "reportlab>=4.2",
     "types-reportlab>=4.2",
+    "uvicorn>=0.30",
     "ruff>=0.8",
 ]
 

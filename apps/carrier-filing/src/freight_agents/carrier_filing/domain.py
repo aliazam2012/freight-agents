@@ -63,10 +63,10 @@ class ClaimPacket(BaseModel):
 
 
 class FilingReceipt(BaseModel):
-    carrier_claim_number: str
+    carrier_claim_number: str  # "pending:<message id>" for email until the carrier answers
     channel: Channel
     reference: str
-    filed_at: dt.datetime
+    received_on: dt.date  # the day the carrier received the claim; 370.5 and 370.9 count from it
 
 
 def from_claims_case(case_id: str, data: dict[str, Any]) -> ClaimPacket:

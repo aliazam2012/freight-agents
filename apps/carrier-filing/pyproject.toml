@@ -13,6 +13,8 @@ dependencies = [
     "freight-agents-evals",
     "freight-agents-integrations",
     "freight-agents-claims-intake",
+    "playwright>=1.49",
+    "reportlab>=4.2",
 ]
 
 [tool.uv.sources]
