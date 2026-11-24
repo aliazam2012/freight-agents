@@ -68,7 +68,7 @@ def test_key_errors_follow_the_idempotency_key_draft(api: TestClient) -> None:
 
 def test_a_request_still_running_with_the_key_is_a_conflict(api: TestClient) -> None:
     store = api.app.state.store  # type: ignore[attr-defined]
-    store.begin("k-busy", "POST /orders", OrderIn.model_validate(BODY).model_dump_json())
+    store.keys.begin("k-busy", "POST /orders", OrderIn.model_validate(BODY).model_dump_json())
     assert post(api, BODY, key="k-busy").status_code == 409
 
 

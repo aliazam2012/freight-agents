@@ -31,6 +31,7 @@ members = [
     "freight-agents-knowledge",
     "freight-agents-llm",
     "freight-agents-mcp",
+    "freight-agents-mock-kit",
     "freight-agents-mock-tms",
     "freight-agents-statecore",
     "freight-agents-telemetry",
@@ -757,17 +758,30 @@ requires-dist = [
 ]
 
 [[package]]
+name = "freight-agents-mock-kit"
+version = "0.1.0"
+source = { editable = "services/mock-kit" }
+dependencies = [
+    { name = "fastapi" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fastapi", specifier = ">=0.115" }]
+
+[[package]]
 name = "freight-agents-mock-tms"
 version = "0.1.0"
 source = { editable = "services/mock-tms" }
 dependencies = [
     { name = "fastapi" },
+    { name = "freight-agents-mock-kit" },
     { name = "httpx" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "freight-agents-mock-kit", editable = "services/mock-kit" },
     { name = "httpx", specifier = ">=0.27" },
 ]
 
