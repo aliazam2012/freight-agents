@@ -51,3 +51,26 @@ def test_edi_fixtures_parse_to_their_gold_tender(tmp_path: Path) -> None:
         if case.tender.source == Source.EDI:
             text = (tmp_path / "edi" / f"{case.id}.edi").read_text()
             assert parse_204(text) == [case.tender]
+
+
+def test_every_pdf_layout_states_every_field(tmp_path: Path) -> None:
+    from freight_agents.integrations.documents import pdf_text
+
+    write_fixtures(tmp_path, seed=11)
+    layouts = set()
+    for case in generate(seed=11):
+        if case.tender.source != Source.PDF:
+            continue
+        layouts.add(case.style)
+        text = pdf_text(tmp_path / "pdf" / f"{case.id}.pdf")
+        order = case.tender.order
+        for value in (order.tender_id, order.shipper_reference, f"{order.weight_lb:,}",
+                      order.commodity):  # fmt: skip
+            assert value in text, (case.id, value)
+        for stop in order.stops:
+            assert stop.party.zip in text
+            assert stop.window_start.strftime("%m/%d/%Y") in text
+            assert stop.window_end.strftime("%H:%M") in text
+        if order.hazmat and order.hazmat.un_number:
+            assert order.hazmat.un_number in text
+    assert layouts == {0, 1, 2}

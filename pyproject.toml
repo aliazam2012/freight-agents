@@ -13,6 +13,8 @@ dev = [
     "pandas-stubs>=2.2",
     "pre-commit>=4",
     "pytest>=8.3",
+    "reportlab>=4.2",
+    "types-reportlab>=4.2",
     "ruff>=0.8",
 ]
 

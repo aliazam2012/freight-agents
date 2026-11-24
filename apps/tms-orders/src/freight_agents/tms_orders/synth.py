@@ -305,7 +305,7 @@ def _new(source: Source, order: Order, n: int) -> Tender:
     )
 
 
-def _zone(stop: Stop) -> str:
+def zone_abbreviation(stop: Stop) -> str:
     if stop.time_zone is None:
         return ""
     return stop.window_start.replace(tzinfo=ZoneInfo(stop.time_zone)).tzname() or ""
@@ -317,7 +317,7 @@ def _stop_lines(stop: Stop) -> list[str]:
     return [
         f"{label}: {p.name}, {p.street}, {p.city}, {p.state} {p.zip}",
         f"  {stop.window_start:%m/%d/%Y} {stop.window_start:%H:%M} to "
-        f"{stop.window_end:%H:%M} {_zone(stop)}, ref {stop.reference}",
+        f"{stop.window_end:%H:%M} {zone_abbreviation(stop)}, ref {stop.reference}",
     ]
 
 
