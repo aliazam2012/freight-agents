@@ -772,7 +772,10 @@ source = { editable = "apps/tms-orders" }
 dependencies = [
     { name = "freight-agents-agentcore" },
     { name = "freight-agents-evals" },
+    { name = "freight-agents-knowledge" },
     { name = "freight-agents-llm" },
+    { name = "freight-agents-mcp" },
+    { name = "freight-agents-mock-tms" },
     { name = "freight-agents-statecore" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -782,7 +785,10 @@ dependencies = [
 requires-dist = [
     { name = "freight-agents-agentcore", editable = "packages/agentcore" },
     { name = "freight-agents-evals", editable = "packages/evals" },
+    { name = "freight-agents-knowledge", editable = "packages/knowledge" },
     { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "freight-agents-mcp", editable = "packages/mcp" },
+    { name = "freight-agents-mock-tms", editable = "services/mock-tms" },
     { name = "freight-agents-statecore", editable = "packages/statecore" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.7" },

@@ -20,8 +20,8 @@ import hashlib
 import logging
 import random
 import time
-from collections.abc import Callable
-from typing import Any, Literal
+from collections.abc import Callable, Mapping
+from typing import Any, Literal, Protocol
 
 import httpx
 from freight_agents.tms_orders.domain import Order
@@ -37,6 +37,29 @@ RATE_PER_S = 5.0
 BURST = 5
 
 Clock = Callable[[], dt.datetime]
+
+
+class HttpResponse(Protocol):
+    """The part of a response this client reads; httpx and Starlette's test client both fit."""
+
+    @property
+    def status_code(self) -> int: ...
+
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+
+    @property
+    def text(self) -> str: ...
+
+    def json(self) -> Any: ...
+
+
+class HttpClient(Protocol):
+    @property
+    def base_url(self) -> Any: ...
+
+    def request(self, method: str, url: str, *, json: Any = ..., headers: Any = ...,
+                params: Any = ...) -> HttpResponse: ...  # fmt: skip
 
 
 def _now() -> dt.datetime:
@@ -141,7 +164,7 @@ class RetryBudget:
         return False
 
 
-def _retry_after(response: httpx.Response) -> float | None:
+def _retry_after(response: HttpResponse) -> float | None:
     value = response.headers.get("Retry-After")
     try:
         return float(value) if value is not None else None
@@ -149,7 +172,7 @@ def _retry_after(response: httpx.Response) -> float | None:
         return None
 
 
-def _title(response: httpx.Response) -> str:
+def _title(response: HttpResponse) -> str:
     try:
         body = response.json()
     except ValueError:
@@ -162,7 +185,7 @@ def _title(response: httpx.Response) -> str:
 class HttpTms:
     def __init__(
         self,
-        client: httpx.Client,
+        client: HttpClient,
         *,
         breaker: CircuitBreaker | None = None,
         bucket: TokenBucket | None = None,
@@ -183,7 +206,7 @@ class HttpTms:
         self.rng = rng or random.Random()
 
     def _send(self, method: str, url: str, *, json: Any = None, key: str | None = None,
-              params: dict[str, str] | None = None) -> httpx.Response:  # fmt: skip
+              params: dict[str, str] | None = None) -> HttpResponse:  # fmt: skip
         self.breaker.check()
         headers = {"Idempotency-Key": f'"{key}"'} if key is not None else {}
         for attempt in range(self.retries + 1):
@@ -223,6 +246,9 @@ class HttpTms:
     def find(self, print_: str) -> list[Receipt]:
         found = self._send("GET", "/orders", params={"fingerprint": print_}).json()
         return [Receipt.model_validate(item) for item in found]
+
+    def find_all(self) -> list[Receipt]:
+        return [Receipt.model_validate(item) for item in self._send("GET", "/orders").json()]
 
     def change(self, order_id: str, order: Order, tender_reference: str, key: str) -> Receipt:
         body = {"action": "change", "tender_reference": tender_reference,
