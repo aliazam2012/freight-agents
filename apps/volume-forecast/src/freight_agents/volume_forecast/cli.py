@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--runs", type=Path, default=DEFAULT_RUNS, help="run store directory")
 
     args = parser.parse_args(argv)
+    if args.command == "eval":
+        # The golden set grades the committed reference run, not the local run store.
+        return _evaluate(args.reports, args.day)
     store = RunStore(args.runs)
 
     if args.command == "backtest":
@@ -58,8 +61,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"report: {path}")
         return 0
 
-    if args.command == "eval":
-        return _evaluate(args.reports, args.day)
     if args.command == "ask":
         return _ask(store, args.question, args.model, args.model_name)
 

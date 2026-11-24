@@ -87,3 +87,9 @@ def test_report_says_when_the_backtest_misses_peak_season() -> None:
     run = _run(gb_wape=0.11)
     run["config"] = {"origins": ["2025-11-01"], "horizon": 28, "levels": [0.8, 0.95]}
     assert "peak-season" not in render(run)
+
+
+def test_eval_command_grades_the_golden_set_and_writes_a_report(tmp_path: Path) -> None:
+    assert main(["eval", "--reports", str(tmp_path), "--day", "2026-11-23"]) == 0
+    assert (tmp_path / "2026-11-23-reference.md").exists()
+    assert (tmp_path / "latest.json").exists()
