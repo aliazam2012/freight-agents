@@ -31,6 +31,7 @@ members = [
     "freight-agents-knowledge",
     "freight-agents-llm",
     "freight-agents-mcp",
+    "freight-agents-mock-carrier",
     "freight-agents-mock-kit",
     "freight-agents-mock-tms",
     "freight-agents-statecore",
@@ -755,6 +756,23 @@ dependencies = [
 requires-dist = [
     { name = "freight-agents-agentcore", editable = "packages/agentcore" },
     { name = "mcp", specifier = ">=2.3" },
+]
+
+[[package]]
+name = "freight-agents-mock-carrier"
+version = "0.1.0"
+source = { editable = "services/mock-carrier" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "freight-agents-mock-kit" },
+    { name = "python-multipart" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "freight-agents-mock-kit", editable = "services/mock-kit" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
 ]
 
 [[package]]
