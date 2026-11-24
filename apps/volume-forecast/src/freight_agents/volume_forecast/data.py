@@ -52,19 +52,21 @@ def _last_weekday(year: int, month: int, weekday: int) -> pd.Timestamp:
     return last - pd.Timedelta(days=(last.day_of_week - weekday) % 7)
 
 
-def holidays(first_year: int, last_year: int) -> list[pd.Timestamp]:
+def holiday_names(first_year: int, last_year: int) -> dict[pd.Timestamp, str]:
     """New Year's Day, Memorial Day, Independence Day, Labor Day, Thanksgiving, Christmas."""
-    days = []
+    names: dict[pd.Timestamp, str] = {}
     for y in range(first_year, last_year + 1):
-        days += [
-            pd.Timestamp(year=y, month=1, day=1),
-            _last_weekday(y, 5, 0),
-            pd.Timestamp(year=y, month=7, day=4),
-            _nth_weekday(y, 9, 0, 1),
-            _nth_weekday(y, 11, 3, 4),
-            pd.Timestamp(year=y, month=12, day=25),
-        ]
-    return days
+        names[pd.Timestamp(year=y, month=1, day=1)] = "New Year's Day"
+        names[_last_weekday(y, 5, 0)] = "Memorial Day"
+        names[pd.Timestamp(year=y, month=7, day=4)] = "Independence Day"
+        names[_nth_weekday(y, 9, 0, 1)] = "Labor Day"
+        names[_nth_weekday(y, 11, 3, 4)] = "Thanksgiving"
+        names[pd.Timestamp(year=y, month=12, day=25)] = "Christmas"
+    return names
+
+
+def holidays(first_year: int, last_year: int) -> list[pd.Timestamp]:
+    return list(holiday_names(first_year, last_year))
 
 
 def _promotions(rng: np.random.Generator, dates: pd.DatetimeIndex) -> np.ndarray:

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from freight_agents.volume_forecast.runs import BASELINE, Run
 
 
@@ -18,6 +19,20 @@ def _metric_rows(rows: list[dict[str, Any]]) -> list[list[str]]:
     return [
         [r["model"], f"{r['wape']:.1%}", f"{r['mase']:.2f}", f"{r['bias']:+.1%}", str(r["rows"])]
         for r in sorted(rows, key=lambda r: r["wape"])
+    ]
+
+
+def _peak_note(origins: list[str], horizon: int) -> list[str]:
+    """Say so when no forecast window reaches the November and December peak."""
+    days = pd.date_range(
+        pd.Timestamp(origins[0]) + pd.Timedelta(days=1),
+        pd.Timestamp(origins[-1]) + pd.Timedelta(days=horizon),
+    )
+    if days.month.isin([11, 12]).any():
+        return []
+    return [
+        f"- Forecast windows run {days[0]:%Y-%m-%d} to {days[-1]:%Y-%m-%d}, so the November "
+        "and December peak is not in this backtest: peak-season accuracy is untested."
     ]
 
 
@@ -112,6 +127,7 @@ def render(run: Run) -> str:
         f"{data['start']} to {data['end']}. Invented lanes; the shapes (weekday, peak season, "
         "holidays, promotions, one lane losing a customer) are the ones real freight shows.",
         f"- Origins: {', '.join(config['origins'])}.",
+        *_peak_note(config["origins"], config["horizon"]),
         "- Models: default settings chosen before the first backtest; nothing was tuned "
         "against these origins.",
         f"- Package version {run['version']}. Reproduce: `freight-forecast backtest "

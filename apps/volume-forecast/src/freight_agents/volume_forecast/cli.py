@@ -8,10 +8,11 @@ from datetime import date
 from pathlib import Path
 
 from freight_agents.volume_forecast.report import write
-from freight_agents.volume_forecast.runs import FORECAST_DAYS, RunStore, build_run
+from freight_agents.volume_forecast.runs import FORECAST_DAYS, RunStore, build_run, ensure_run
 
 DEFAULT_RUNS = Path("var/forecast/runs")
 DEFAULT_REPORTS = Path("apps/volume-forecast/reports")
+DEFAULT_EVAL_REPORTS = Path("apps/volume-forecast/evals/reports")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,7 +31,16 @@ def main(argv: list[str] | None = None) -> int:
     forecast.add_argument("--model", help="defaults to the run's best model")
     forecast.add_argument("--run", default="latest", help="run id, or latest")
 
-    for sub in (backtest, forecast):
+    evaluate = commands.add_parser("eval", help="grade the planner agent's golden set")
+    evaluate.add_argument("--day", default=date.today().isoformat(), help="report date")
+    evaluate.add_argument("--reports", type=Path, default=DEFAULT_EVAL_REPORTS)
+
+    ask = commands.add_parser("ask", help="ask the planner agent a question (live model)")
+    ask.add_argument("question")
+    ask.add_argument("--model", choices=["anthropic", "openai"], default="anthropic")
+    ask.add_argument("--model-name")
+
+    for sub in (backtest, forecast, evaluate, ask):
         sub.add_argument("--runs", type=Path, default=DEFAULT_RUNS, help="run store directory")
 
     args = parser.parse_args(argv)
@@ -47,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {row['model']:<18} WAPE {row['wape']:.1%}  MASE {row['mase']:.2f}")
         print(f"report: {path}")
         return 0
+
+    if args.command == "eval":
+        return _evaluate(store, args.reports, args.day)
+    if args.command == "ask":
+        return _ask(store, args.question, args.model, args.model_name)
 
     try:
         run = store.load(args.run)
@@ -70,6 +85,58 @@ def main(argv: list[str] | None = None) -> int:
             f"{r['date']:<11} {r['forecast']:>8.0f}  {r['lo_80']:>6.0f}-{r['hi_80']:<6.0f}"
             f"  {r['lo_95']:>6.0f}-{r['hi_95']:<6.0f}{note}"
         )
+    return 0
+
+
+def _evaluate(store: RunStore, reports: Path, day: str) -> int:
+    from freight_agents.volume_forecast.evaluation import (
+        FLOORS,
+        QUESTIONS,
+        load_cases,
+        run_reference,
+        write_report,
+    )
+    from freight_agents.volume_forecast.tools import ForecastDeps
+
+    run = ensure_run(store, day=day)
+    deps = ForecastDeps.load(store, run["run_id"])
+    result = run_reference(load_cases(QUESTIONS), deps)
+    path = write_report(result, deps, reports, day)
+    for name, value in result.metrics.items():
+        print(f"{name}: {value:.2f}")
+    failures = result.failures(FLOORS)
+    print(f"gate: {'passed' if not failures else 'failed: ' + '; '.join(failures)}")
+    print(f"report: {path}")
+    return 1 if failures else 0
+
+
+def _ask(store: RunStore, question: str, kind: str, name: str | None) -> int:
+    from datetime import UTC, datetime
+
+    from freight_agents.agentcore.hooks import HookContext
+    from freight_agents.llm import Model, TextPart
+    from freight_agents.volume_forecast.evaluation import planner
+    from freight_agents.volume_forecast.tools import ForecastDeps
+
+    model: Model
+    if kind == "anthropic":
+        from freight_agents.llm.anthropic_adapter import AnthropicModel
+
+        model = AnthropicModel(model=name) if name else AnthropicModel()
+    else:
+        if not name:
+            print("--model openai needs --model-name", file=sys.stderr)
+            return 2
+        from freight_agents.llm.openai_adapter import OpenAIModel
+
+        model = OpenAIModel(model=name)
+    run = ensure_run(store)
+    deps = ForecastDeps.load(store, run["run_id"])
+    ctx = HookContext(run_id="ask", agent="forecast-planner", now=datetime.now(UTC))
+    result = planner(model, deps).run([TextPart(text=question)], ctx)
+    print(result.text)
+    for outcome in result.outcomes:
+        print(f"  tool {outcome.tool}: {outcome.status}")
     return 0
 
 

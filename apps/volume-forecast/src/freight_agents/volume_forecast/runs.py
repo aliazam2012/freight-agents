@@ -94,21 +94,45 @@ def _factories(gb_seed: int) -> dict[str, Callable[[], Forecaster]]:
     }
 
 
-def build_run(
-    seed: int = 7, count: int = 8, horizon: int = 28, gb_seed: int = 7, day: str = ""
-) -> Run:
-    """Backtest every model, calibrate intervals, and forecast the days after the data."""
+def run_config(
+    seed: int = 7, count: int = 8, horizon: int = 28, gb_seed: int = 7
+) -> tuple[pd.DataFrame, list[pd.Timestamp], dict[str, Any]]:
+    """The data, the origins and the configuration a run with these settings uses."""
     data = generate(seed=seed)
     cut = origins(data, count=count, step=STEP_DAYS, horizon=horizon)
-    factories = _factories(gb_seed)
     config = {
         "seed": seed,
         "origins": [d.strftime("%Y-%m-%d") for d in cut],
         "horizon": horizon,
         "levels": list(LEVELS),
-        "models": list(factories),
+        "models": list(_factories(gb_seed)),
         "gb_seed": gb_seed,
     }
+    return data, cut, config
+
+
+def planned_run_id(seed: int = 7, count: int = 8, horizon: int = 28, gb_seed: int = 7) -> str:
+    """The id a run with these settings will get, without running it."""
+    data, _, config = run_config(seed, count, horizon, gb_seed)
+    return run_id(data_hash(data), config, VERSION)
+
+
+def ensure_run(store: RunStore, seed: int = 7, count: int = 8, day: str = "") -> Run:
+    """The stored run for these settings, built and saved first if it is not there."""
+    try:
+        return store.load(planned_run_id(seed, count))
+    except FileNotFoundError:
+        run = build_run(seed=seed, count=count, day=day)
+        store.save(run)
+        return run
+
+
+def build_run(
+    seed: int = 7, count: int = 8, horizon: int = 28, gb_seed: int = 7, day: str = ""
+) -> Run:
+    """Backtest every model, calibrate intervals, and forecast the days after the data."""
+    data, cut, config = run_config(seed, count, horizon, gb_seed)
+    factories = _factories(gb_seed)
     frame = run_backtest(data, list(factories.values()), cut, horizon)
     overall, by_lane = summarize(frame)
     holidays, _ = summarize(frame[frame["holiday"]])

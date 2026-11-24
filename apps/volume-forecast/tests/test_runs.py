@@ -80,3 +80,10 @@ def _run(gb_wape: float) -> dict[str, object]:
 def test_report_says_so_when_a_model_does_not_beat_the_baseline() -> None:
     assert "does not beat" in render(_run(gb_wape=0.20))
     assert "beats seasonal_naive" in render(_run(gb_wape=0.11))
+
+
+def test_report_says_when_the_backtest_misses_peak_season() -> None:
+    assert "peak-season accuracy is untested" in render(_run(gb_wape=0.11))
+    run = _run(gb_wape=0.11)
+    run["config"] = {"origins": ["2025-11-01"], "horizon": 28, "levels": [0.8, 0.95]}
+    assert "peak-season" not in render(run)
