@@ -36,6 +36,7 @@ Freight operations run on email: claims, load tenders, carrier disputes. An agen
 - **Any model, same behavior.** One interface with adapters for the Anthropic Messages API and the OpenAI Responses API; a scripted model and record-and-replay for tests.
 - **Measured, not claimed.** A golden set with deterministic graders gates every change in CI, including red-team cases where the model falls for an injection on purpose and the guards must still hold.
 - **Sourced domain rules.** Claim rules come from 49 CFR Part 370 and 49 U.S.C. 14706, read at the source, retrieved with citations.
+- **Documents to transactions, exactly once.** Load tenders by EDI 204, PDF or email become one validated TMS order: code parses EDI, the model only reads free text, and writes carry idempotency keys a lost reply cannot duplicate.
 - **Classic machine learning, backtested.** Volume forecasts beat a seasonal-naive baseline in a rolling-origin backtest, with prediction ranges whose coverage is measured; the planner agent quotes only figures its tools return.
 
 ## Skills Shown
@@ -56,7 +57,8 @@ Each row points at the code or the public issue that proves it. Shipped means me
 | Running an engineering team | [ADRs](docs/adr/), [review checklist](docs/CHECKLIST-code-review.md), [release runbook](docs/RUNBOOK-release.md), [postmortem template](docs/TPL-postmortem.md), [milestones](https://github.com/aliazam2012/freight-agents/milestones) | Shipped |
 | Vision AI | damage-assessor | Planned, [v0.2](https://github.com/aliazam2012/freight-agents/issues/11) |
 | Integrations and durable timers | carrier-filing | Planned, [v0.3](https://github.com/aliazam2012/freight-agents/issues/12) |
-| Document AI (PDF, EDI) | tms-orders | Planned, [v0.4](https://github.com/aliazam2012/freight-agents/issues/13) |
+| Document AI (PDF, EDI) | [tms-orders](apps/tms-orders/): X12 204 parser and 990 writer, PDF and email extraction through one strict tool, [ADR-0009](docs/adr/ADR-0009-parsers-before-models.md) | Shipped; live PDF and email runs with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
+| Exactly-once writes over HTTP | [mock TMS](services/mock-tms/) with Idempotency-Key semantics, a [resilient client](apps/tms-orders/src/freight_agents/tms_orders/tms.py), [ADR-0010](docs/adr/ADR-0010-idempotency-at-the-api.md) | Shipped |
 | Agents in a team's workflow | incident-bot (Slack) | Planned, [v0.5](https://github.com/aliazam2012/freight-agents/issues/14) |
 | Classic machine learning | [volume-forecast](apps/volume-forecast/): rolling-origin backtest, conformal ranges, [report](apps/volume-forecast/reports/2026-11-23-backtest.md), [ADR-0008](docs/adr/ADR-0008-forecasting-models.md) | Shipped |
 | Agents that cannot invent numbers | [planner tools and grounding grader](apps/volume-forecast/src/freight_agents/volume_forecast/), [evaluation](apps/volume-forecast/evals/reports/2026-11-23-reference.md) | Shipped; live runs with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
@@ -72,13 +74,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams, [docs/adr](do
 | claims-intake | Claim email in; triage, extraction with TMS lookup, the 49 CFR 370.3 minimum check and the filing window; asks the claimant for missing details after a person approves | v0.1 |
 | damage-assessor | Photos and description to a claim recommendation | planned, v0.2 |
 | carrier-filing | Files a complete claim through the carrier's API, portal or email; tracks the 30 and 120 day timers | planned, v0.3 |
-| tms-orders | Load tender by email, PDF or EDI 204 to a validated TMS order | planned, v0.4 |
+| tms-orders | Load tender by EDI 204, PDF or email to one validated TMS order; a 990 or email reply after approval | v0.4 |
 | incident-bot | Slack incident management with approved status updates | planned, v0.5 |
 | volume-forecast | Backtested daily volume forecasts with measured ranges; an agent answers planners' questions through tools and cites the run | v0.6 |
 
 ## Results
 
 **claims-intake.** The reference run (scripted correct turns, plus red-team turns that fall for every injection) passes the gate: field accuracy 1.00, state accuracy 1.00, sends without approval 0, injection resisted 1.00. It proves the pipeline, hooks and graders, not a model: [report](apps/claims-intake/evals/reports/). Results for a real model come from a recorded run and are added with v0.1.0.
+
+**tms-orders** ([report](apps/tms-orders/evals/reports/2026-11-23-reference.md)): 36 tenders and 6 red-team tenders against the mock TMS; EDI field accuracy 1.00 measured on the parser, every case in its expected state, 0 duplicate orders, 0 replies sent without approval, and 6 of 6 injected instructions resisted while the scripted model obeyed them. PDF and email rows run in reference mode until a live run.
 
 **volume-forecast**, on synthetic data ([report](apps/volume-forecast/reports/2026-11-23-backtest.md)): gradient boosting misses by 11.4% of volume (WAPE) against 17.8% for the seasonal-naive baseline, MASE 0.56; its 80% and 95% ranges held 83.5% and 96.0% of actual days on origins the calibration never saw. The backtest windows end in October, so peak-season accuracy is untested. The planner agent's reference evaluation passes on 16 questions with every figure traced to a tool result.
 
@@ -124,7 +128,9 @@ packages/integrations   email in, email out, TMS client
 packages/evals          golden cases, graders, the gate, reports
 packages/telemetry      OpenTelemetry spans with GenAI attributes, cost meter
 apps/claims-intake      claim email to a complete case
+apps/tms-orders         load tenders to exactly-once TMS orders
 apps/volume-forecast    backtested forecasts and the planner agent
+services/mock-tms       a made-up TMS order API with Idempotency-Key semantics
 data/                   the made-up inbox and TMS, and the generator that writes them
 ```
 

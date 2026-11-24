@@ -1,0 +1,14 @@
+[project]
+name = "freight-agents-mock-tms"
+version = "0.1.0"
+description = "A made-up TMS order API with Idempotency-Key semantics, for tests and demos"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freight_agents"]

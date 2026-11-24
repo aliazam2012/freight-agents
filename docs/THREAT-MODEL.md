@@ -31,6 +31,12 @@ Everything in an email (sender, subject, body, attachment names and contents) is
 | Tampering with history | Events table refuses UPDATE and DELETE | SqliteEventStore triggers |
 | Secrets in the repository | Keys only from the environment; secret scanning in CI | gitleaks (v0.1 CI) |
 | Vulnerable dependencies | One lockfile; dependency audit and Dependabot | pip-audit, Dependabot |
+| Text in a tender redirects a load (tms-orders) | Stops must be in the shipper's location master; a new location waits for a person | validate_order, address.unknown_location |
+| A tender's text names another reply address | Replies go only to the tender's sender (the email From or the shipper's directory entry), and wait for approval | recipient_policy, taint_guard, approval_gate |
+| A fake cancellation or change in a tender | A change or cancellation needs an existing order for the same load; otherwise a person decides | submit, needs_review |
+| The order changes between validation and the TMS write | The write must match the validated order exactly | matches_validated |
+| A lost reply or retry creates a second order | Writes carry an Idempotency-Key kept across retries; the TMS replays the first answer; the load's fingerprint is searched before any write | HttpTms, mock TMS, submit |
+| A broken or hostile EDI file | Envelope counts and control numbers are checked; values holding a separator are refused on write | x12.parse_interchange, write_204 |
 
 ## Residual Risk
 
@@ -38,3 +44,4 @@ Everything in an email (sender, subject, body, attachment names and contents) is
 - The model can extract a wrong value (an amount, a date). Deterministic checks catch missing values, not wrong ones; the claim is filed later by a person or by carrier-filing with its own checks.
 - Hidden HTML text reaches the model as ordinary text. It is tainted like the rest of the email.
 - Attachment contents are not read in v0.1; damage-assessor (v0.2) adds images behind the same boundaries.
+- tms-orders: a model fooled into choosing a wrong value that the document also states and the rules allow (an injected lower weight, a second date) gets through validation. Code checks that values are present, plausible and unchanged after validation; it cannot tell which of two stated values the shipper meant. EDI tenders do not pass through the model, so the gap covers PDF and email only.

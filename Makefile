@@ -1,6 +1,6 @@
 # Every target runs through uv, so the lockfile decides every version.
 UV ?= uv
-SRC_DIRS := $(wildcard packages/*/src apps/*/src)
+SRC_DIRS := $(wildcard packages/*/src apps/*/src services/*/src)
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
@@ -26,10 +26,12 @@ test:
 
 data:
 	$(UV) run --all-packages python data/generate_claims.py
+	$(UV) run --all-packages python data/generate_tenders.py
 
 eval:
 	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(sys.argv[1:]))" $(ARGS)
 	$(UV) run --all-packages freight-forecast eval --reports var/forecast/eval-reports
+	$(UV) run --all-packages freight-orders eval --reports var/orders/eval-reports
 
 # Backtest every forecasting model and write the dated report (about 20 seconds).
 forecast:
