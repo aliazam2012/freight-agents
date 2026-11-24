@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test data eval demo purity audit record
+.PHONY: setup check lint types test data eval demo purity audit record forecast
 
 setup:
 	$(UV) sync --all-packages
@@ -29,6 +29,11 @@ data:
 
 eval:
 	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(sys.argv[1:]))" $(ARGS)
+	$(UV) run --all-packages freight-forecast eval --reports var/forecast/eval-reports
+
+# Backtest every forecasting model and write the dated report (about 20 seconds).
+forecast:
+	$(UV) run --all-packages freight-forecast backtest
 
 demo: data
 	$(UV) run --all-packages python -m freight_agents.claims_intake.demo

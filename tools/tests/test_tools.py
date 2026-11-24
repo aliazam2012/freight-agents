@@ -54,6 +54,28 @@ def test_purity_allows_made_up_data(tmp_path: Path) -> None:
     assert purity.scan(root) == []
 
 
+def test_purity_flags_phone_numbers_in_their_usual_formats(tmp_path: Path) -> None:
+    lines = [
+        "(212) 736-5000",  # purity: allow
+        "212.736.5000",  # purity: allow
+        "1-212-736-5000",  # purity: allow
+        "+1 212 736 5000",  # purity: allow
+    ]
+    root = _tree(tmp_path, {f"{i}.md": f"call {line}\n" for i, line in enumerate(lines)})
+    assert sorted(f.kind for f in purity.scan(root)) == ["phone"] * 4
+
+
+def test_purity_passes_numbers_shaped_otherwise(tmp_path: Path) -> None:
+    root = _tree(
+        tmp_path,
+        {
+            "a.json": '{"forecast": 2596.201117, "hi_95": 3088.941989, "lo": 1855.250001}\n',
+            "b.md": "at 2026-11-23 10:15, near 37.7749, -122.4194, parcel 3512-001-0042\n",
+        },
+    )
+    assert purity.scan(root) == []
+
+
 def test_the_real_repository_is_clean() -> None:
     assert purity.scan(TOOLS.parent) == []
 

@@ -67,22 +67,39 @@ def _bad_email(word: str) -> bool:
 
 
 def _phones(line: str) -> list[str]:
-    """Ten-digit numbers written as phone numbers, outside the 555 exchange."""
+    """North American phone numbers by their digit grouping: 3-3-4, or 1-3-3-4 with a leading 1.
+
+    Decimals, dates with times, coordinates, parcel numbers and long ids have other
+    groupings and pass. The fictional 555 exchange passes too.
+    """
     found, i, n = [], 0, len(line)
     while i < n:
-        if not line[i].isdigit():
+        if not (line[i].isdigit() or (line[i] in "(+" and i + 1 < n and line[i + 1].isdigit())):
             i += 1
             continue
-        j, digits = i, ""
-        while j < n and (
-            line[j].isdigit() or (line[j] in " -.()" and j + 1 < n and line[j + 1].isdigit())
-        ):
+        j, groups, current = i, [], ""
+        while j < n:
             if line[j].isdigit():
-                digits += line[j]
-            j += 1
-        if len(digits) == 10 and digits[3:6] != "555" and any(c in line[i:j] for c in " -.()"):
-            found.append(line[i:j])
-        i = j
+                current += line[j]
+                j += 1
+                continue
+            k = j
+            while k < n and k - j < 2 and line[k] in " -.()+":
+                k += 1
+            if k > j and k < n and line[k].isdigit():
+                if current:
+                    groups.append(current)
+                    current = ""
+                j = k
+                continue
+            break
+        if current:
+            groups.append(current)
+        shape = tuple(len(g) for g in groups)
+        ok_shape = shape == (3, 3, 4) or (shape == (1, 3, 3, 4) and groups[0] == "1")
+        if ok_shape and groups[-2] != "555":
+            found.append(line[i:j].strip())
+        i = max(j, i + 1)
     return found
 
 
