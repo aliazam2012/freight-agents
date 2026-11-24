@@ -11,6 +11,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass
 from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 from freight_agents.agentcore.tools import Risk, Tool, tool
@@ -96,7 +97,16 @@ def load_corpus(directory: Path) -> list[Passage]:
 
 
 def default_corpus() -> list[Passage]:
-    docs = resources.files("freight_agents.knowledge") / "docs"
+    """The claim rules: documents directly in docs/."""
+    return _corpus(resources.files("freight_agents.knowledge") / "docs")
+
+
+def topic_corpus(topic: str) -> list[Passage]:
+    """One application's documents, in docs/<topic>/, kept out of the default corpus."""
+    return _corpus(resources.files("freight_agents.knowledge") / "docs" / topic)
+
+
+def _corpus(docs: Traversable) -> list[Passage]:
     passages: list[Passage] = []
     for entry in sorted(docs.iterdir(), key=lambda e: e.name):
         if entry.name.endswith(".md"):

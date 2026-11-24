@@ -32,6 +32,7 @@ members = [
     "freight-agents-mcp",
     "freight-agents-statecore",
     "freight-agents-telemetry",
+    "freight-agents-tms-orders",
     "freight-agents-volume-forecast",
 ]
 constraints = [{ name = "cryptography", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "<49" }]
@@ -571,6 +572,27 @@ requires-dist = [
     { name = "freight-agents-llm", editable = "packages/llm" },
     { name = "opentelemetry-api", specifier = ">=1.27" },
     { name = "opentelemetry-sdk", specifier = ">=1.27" },
+]
+
+[[package]]
+name = "freight-agents-tms-orders"
+version = "0.1.0"
+source = { editable = "apps/tms-orders" }
+dependencies = [
+    { name = "freight-agents-agentcore" },
+    { name = "freight-agents-evals" },
+    { name = "freight-agents-llm" },
+    { name = "freight-agents-statecore" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "freight-agents-agentcore", editable = "packages/agentcore" },
+    { name = "freight-agents-evals", editable = "packages/evals" },
+    { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "freight-agents-statecore", editable = "packages/statecore" },
+    { name = "pydantic", specifier = ">=2.7" },
 ]
 
 [[package]]

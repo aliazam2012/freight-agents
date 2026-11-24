@@ -1,0 +1,21 @@
+From: Brightwater Beverage Works <transport@bbw.example.com>
+To: tenders@exfl.example.com
+Subject: Load tender BBW-104223 / Denver to Atlanta
+Date: Tue, 01 Dec 2026 15:00:00 +0000
+Message-ID: <tender-029@tenders.example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+TENDER ID: BBW-104223
+SHIPPER: Brightwater Beverage Works
+SHIPPER REF: SI2622590
+Pickup: Brightwater Beverage Works warehouse, 3440 Commerce Dr, Denver, CO 80216
+  12/05/2026 06:00 to 10:00 MST, ref PU981028
+Delivery 1: Cedar Row Hardware, 1660 Logistics Blvd, Atlanta, GA 30336
+  12/08/2026 09:00 to 13:00 EST, ref DL164954
+EQUIPMENT: 53' reefer
+WEIGHT: 21,380 lbs
+PALLETS: 18
+COMMODITY: canned juice Keep at 37F.
+RATE: $2,600.45

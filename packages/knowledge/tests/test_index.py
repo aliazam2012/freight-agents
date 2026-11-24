@@ -48,3 +48,13 @@ def test_the_search_tool_returns_citations() -> None:
     first = out.output["passages"][0]
     assert set(first) == {"text", "title", "section", "source_url"}
     assert first["source_url"].startswith("https://")
+
+
+def test_topic_corpora_stay_out_of_the_default_one() -> None:
+    from freight_agents.knowledge.index import default_corpus, topic_corpus
+
+    orders = topic_corpus("orders")
+    assert orders
+    assert all(p.source_url.startswith("https://") and p.read_on for p in orders)
+    default_docs = {p.doc_id for p in default_corpus()}
+    assert not default_docs & {p.doc_id for p in orders}

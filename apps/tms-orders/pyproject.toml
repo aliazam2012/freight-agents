@@ -1,0 +1,26 @@
+[project]
+name = "freight-agents-tms-orders"
+version = "0.1.0"
+description = "Load tenders by EDI 204, PDF or email to validated, exactly-once TMS orders"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "freight-agents-llm",
+    "freight-agents-agentcore",
+    "freight-agents-statecore",
+    "freight-agents-evals",
+]
+
+[tool.uv.sources]
+freight-agents-llm = { workspace = true }
+freight-agents-agentcore = { workspace = true }
+freight-agents-statecore = { workspace = true }
+freight-agents-evals = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freight_agents"]
