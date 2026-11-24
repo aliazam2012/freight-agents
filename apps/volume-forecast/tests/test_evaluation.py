@@ -14,7 +14,13 @@ def test_the_golden_set_passes_the_gate_in_reference_mode(default_store: RunStor
     cases = load_cases(QUESTIONS)
     assert len(cases) >= 12
     result = run_reference(cases, ForecastDeps.load(default_store))
-    assert result.failures(FLOORS) == []
+    broken = [
+        (r["id"], r["invented"], r["called"])
+        for r in result.per_case
+        if not (r["grounded"] and r["tools_ok"] and r["errors_ok"])
+        or (r["needs_cite"] and not r["cited"])
+    ]
+    assert result.failures(FLOORS) == [], broken
 
 
 def test_the_grader_catches_an_invented_number_and_a_missing_run_id(
