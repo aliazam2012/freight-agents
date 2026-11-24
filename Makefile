@@ -1,6 +1,6 @@
 # Every target runs through uv, so the lockfile decides every version.
 UV ?= uv
-SRC_DIRS := $(wildcard packages/*/src apps/*/src)
+SRC_DIRS := $(wildcard packages/*/src apps/*/src services/*/src)
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))

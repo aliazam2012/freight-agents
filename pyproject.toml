@@ -28,7 +28,7 @@ constraint-dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "apps/*"]
+members = ["packages/*", "apps/*", "services/*"]
 
 [tool.ruff]
 line-length = 100
@@ -51,5 +51,5 @@ module = ["sklearn.*", "statsmodels.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "apps", "tools"]
+testpaths = ["packages", "apps", "services", "tools"]
 addopts = "-q --import-mode=importlib --strict-markers"
