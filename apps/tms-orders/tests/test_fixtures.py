@@ -41,3 +41,13 @@ def test_email_tenders_are_real_messages_with_the_tender_reference(tmp_path: Pat
         assert message["Message-ID"] == case.tender.reference
         assert message["From"].endswith(".example.com>")
         assert case.tender.order.tender_id in message["Subject"]
+
+
+def test_edi_fixtures_parse_to_their_gold_tender(tmp_path: Path) -> None:
+    from freight_agents.tms_orders.edi204 import parse_204
+
+    write_fixtures(tmp_path, seed=11)
+    for case in generate(seed=11):
+        if case.tender.source == Source.EDI:
+            text = (tmp_path / "edi" / f"{case.id}.edi").read_text()
+            assert parse_204(text) == [case.tender]

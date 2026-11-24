@@ -13,6 +13,7 @@ from email.utils import format_datetime
 from pathlib import Path
 
 from freight_agents.tms_orders.domain import Source
+from freight_agents.tms_orders.edi204 import write_204
 from freight_agents.tms_orders.synth import Case, email_subject, generate, render_email
 
 INBOX = "tenders@exfl.example.com"
@@ -41,11 +42,15 @@ def _file(case: Case) -> str:
 
 def write_fixtures(root: Path, seed: int = 11) -> list[Case]:
     cases = generate(seed=seed)
-    (root / "email").mkdir(parents=True, exist_ok=True)
+    for folder in ("email", "edi"):
+        (root / folder).mkdir(parents=True, exist_ok=True)
     lines = []
     for case in cases:
         if case.tender.source == Source.EMAIL:
             (root / _file(case)).write_bytes(_email(case))
+        elif case.tender.source == Source.EDI:
+            # One segment per line, as most partners send it.
+            (root / _file(case)).write_text(write_204(case.tender).replace("~", "~\n"))
         lines.append(
             json.dumps(
                 {
