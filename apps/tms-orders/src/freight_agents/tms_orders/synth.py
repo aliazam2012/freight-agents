@@ -278,12 +278,14 @@ def generate(seed: int = 11) -> list[Case]:
                 update={"hazmat": broken.hazmat.model_copy(update={"un_number": None})}
             )
         else:
-            pickup = broken.stops[0]
+            # Every delivery moves by the same amount, so only the pickup order breaks.
+            pickup, lead = broken.stops[0], broken.stops[1]
+            shift = (lead.window_start - pickup.window_start) + dt.timedelta(days=2)
             early = [
                 s.model_copy(
                     update={
-                        "window_start": pickup.window_start - dt.timedelta(days=2),
-                        "window_end": pickup.window_end - dt.timedelta(days=2),
+                        "window_start": s.window_start - shift,
+                        "window_end": s.window_end - shift,
                     }
                 )
                 if s.kind == StopKind.DELIVERY
