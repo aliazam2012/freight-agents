@@ -1,7 +1,7 @@
 """The planner agent's golden set: questions, reference answers, and the grader.
 
 Modes: ``reference`` replays each case's scripted turns. The tools still run for
-real against the run, so a tool whose figures drift away from a reference answer
+real against the committed reference run, so a tool change that moves a figure
 fails the gate. A live model run goes through ``freight-forecast ask`` and, once
 recorded, through the same grader.
 
@@ -27,6 +27,7 @@ from freight_agents.agentcore.tools import ToolRegistry
 from freight_agents.llm import Model, ModelTurn, ScriptedModel, TextPart
 from freight_agents.volume_forecast.grounding import ungrounded
 from freight_agents.volume_forecast.prompts import PLANNER
+from freight_agents.volume_forecast.runs import RunStore
 from freight_agents.volume_forecast.tools import ForecastDeps, build_tools
 from pydantic import BaseModel
 
@@ -38,6 +39,9 @@ def repo_root() -> Path:
 
 EVALS = repo_root() / "apps" / "volume-forecast" / "evals"
 QUESTIONS = EVALS / "questions.jsonl"
+# The run the reference answers were rendered from. Model arithmetic can differ in the last
+# digit between machines, so the golden set grades this committed run, never a rebuilt one.
+REFERENCE_RUN = EVALS / "run"
 ASKED_AT = datetime(2026, 11, 1, 8, 0, tzinfo=UTC)  # the morning after the data ends
 
 Floor = tuple[str, float]
@@ -55,6 +59,10 @@ class PlannerCase(BaseModel):
     tags: list[str]
     expected: dict[str, Any]
     reference: list[dict[str, Any]]
+
+
+def reference_deps() -> ForecastDeps:
+    return ForecastDeps.load(RunStore(REFERENCE_RUN))
 
 
 def load_cases(path: Path) -> list[PlannerCase]:

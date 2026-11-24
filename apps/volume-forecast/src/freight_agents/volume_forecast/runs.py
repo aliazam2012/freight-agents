@@ -70,10 +70,11 @@ class RunStore:
     def __init__(self, directory: Path) -> None:
         self.directory = Path(directory)
 
-    def save(self, run: Run) -> Path:
+    def save(self, run: Run, compact: bool = False) -> Path:
         self.directory.mkdir(parents=True, exist_ok=True)
         path = self.directory / f"{run['run_id']}.json"
-        path.write_text(json.dumps(run, indent=1, sort_keys=True) + "\n")
+        text = json.dumps(run, sort_keys=True, indent=None if compact else 1)
+        path.write_text(text + "\n")
         (self.directory / "LATEST").write_text(run["run_id"] + "\n")
         return path
 

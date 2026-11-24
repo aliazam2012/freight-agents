@@ -1,7 +1,9 @@
 """Write questions.jsonl: planner questions, the tool calls they need, reference answers.
 
 Each answer is rendered from the real tool outputs of the default run, so every figure
-in it is one a tool returned. Rerun after a change that moves the run's numbers:
+in it is one a tool returned. The run itself is copied to evals/run, and the gate grades
+that copy, because model arithmetic can differ in the last digit between machines.
+Rerun after a change that moves the run's numbers:
 
     uv run --all-packages python apps/volume-forecast/evals/make_reference.py
 """
@@ -14,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from freight_agents.volume_forecast.evaluation import REFERENCE_RUN
 from freight_agents.volume_forecast.runs import RunStore, ensure_run
 from freight_agents.volume_forecast.tools import ForecastDeps, build_tools
 
@@ -245,7 +248,12 @@ def main() -> None:
     root = Path(__file__).resolve().parents[3]
     store = RunStore(root / "var" / "forecast" / "runs")
     run = ensure_run(store)
-    deps = ForecastDeps.load(store, run["run_id"])
+    # Commit the exact run the answers describe; the gate grades it on every machine.
+    reference = RunStore(REFERENCE_RUN)
+    for old in REFERENCE_RUN.glob("fc-*.json"):
+        old.unlink()
+    reference.save(run, compact=True)
+    deps = ForecastDeps.load(reference)
     tools = build_tools(deps)
     lines = []
     for spec in SPECS:

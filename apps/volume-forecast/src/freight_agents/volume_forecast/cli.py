@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     ask.add_argument("--model", choices=["anthropic", "openai"], default="anthropic")
     ask.add_argument("--model-name")
 
-    for sub in (backtest, forecast, evaluate, ask):
+    for sub in (backtest, forecast, ask):
         sub.add_argument("--runs", type=Path, default=DEFAULT_RUNS, help="run store directory")
 
     args = parser.parse_args(argv)
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "eval":
-        return _evaluate(store, args.reports, args.day)
+        return _evaluate(args.reports, args.day)
     if args.command == "ask":
         return _ask(store, args.question, args.model, args.model_name)
 
@@ -88,18 +88,17 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _evaluate(store: RunStore, reports: Path, day: str) -> int:
+def _evaluate(reports: Path, day: str) -> int:
     from freight_agents.volume_forecast.evaluation import (
         FLOORS,
         QUESTIONS,
         load_cases,
+        reference_deps,
         run_reference,
         write_report,
     )
-    from freight_agents.volume_forecast.tools import ForecastDeps
 
-    run = ensure_run(store, day=day)
-    deps = ForecastDeps.load(store, run["run_id"])
+    deps = reference_deps()
     result = run_reference(load_cases(QUESTIONS), deps)
     path = write_report(result, deps, reports, day)
     for name, value in result.metrics.items():
