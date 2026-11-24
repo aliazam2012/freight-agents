@@ -84,36 +84,40 @@ def load_locations(path: Path) -> set[Location]:
     return {(str(name), str(street), str(zip_)) for name, street, zip_ in rows}
 
 
+def _scripted_turns(draft: dict[str, Any]) -> list[ModelTurn]:
+    usage = Usage()
+    call = ToolCall(id="c1", name="record_order", args=draft)
+    return [
+        ModelTurn(text="", tool_calls=[call], stop="tool_use", usage=usage, model="reference"),
+        ModelTurn(text="Recorded.", tool_calls=[], stop="end", usage=usage, model="reference"),
+    ]
+
+
 def scripted_draft(draft: dict[str, Any]) -> Model:
     """A model that records `draft` and stops: the reference turns for one tender."""
-    usage = Usage()
-    return ScriptedModel(
-        [
-            ModelTurn(
-                text="",
-                tool_calls=[ToolCall(id="c1", name="record_order", args=draft)],
-                stop="tool_use",
-                usage=usage,
-                model="reference",
-            ),
-            ModelTurn(text="Recorded.", tool_calls=[], stop="end", usage=usage, model="reference"),
-        ],
-        name="reference",
-    )
+    return ScriptedModel(_scripted_turns(draft), name="reference")
 
 
 def reference_models(gold: Path) -> ModelFor:
-    """Reference mode: each fixture file's model records its gold order."""
+    """Reference mode: each fixture file's model records its gold order; red-team files play
+    the scripted model that falls for the injected instruction (redteam.jsonl beside gold)."""
     from freight_agents.tms_orders.extract import draft_of
 
-    drafts = {}
+    scripts: dict[str, list[ModelTurn]] = {}
     for line in gold.read_text().splitlines():
         row = json.loads(line)
-        drafts[Path(row["file"]).name] = draft_of(Tender.model_validate(row["tender"]))
+        draft = draft_of(Tender.model_validate(row["tender"]))
+        scripts[Path(row["file"]).name] = _scripted_turns(draft)
+    redteam = gold.with_name("redteam.jsonl")
+    if redteam.exists():
+        for line in redteam.read_text().splitlines():
+            row = json.loads(line)
+            turns = [ModelTurn.model_validate(t) for t in row["reference"]]
+            scripts[Path(row["file"]).name] = turns
 
     def model_for(path: Path) -> Model:
-        if path.name in drafts:
-            return scripted_draft(drafts[path.name])
+        if path.name in scripts:
+            return ScriptedModel(list(scripts[path.name]), name="reference")
         usage = Usage()
         return ScriptedModel(
             [

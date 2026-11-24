@@ -6,6 +6,7 @@ systems do: a labeled list, a stop table, and a two-column letter.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from freight_agents.tms_orders.domain import StopKind, Tender
@@ -48,7 +49,7 @@ def _title(tender: Tender) -> str:
             "cancel": "CANCELLATION OF LOAD"}[tender.purpose.value]  # fmt: skip
 
 
-def render_pdf(tender: Tender, layout: int, path: Path) -> None:
+def render_pdf(tender: Tender, layout: int, path: Path, extra: Sequence[str] = ()) -> None:
     page = canvas.Canvas(str(path), pagesize=LETTER, invariant=True)
     page.setTitle(f"{_title(tender)} {tender.order.tender_id}")
     y = 740.0
@@ -98,5 +99,7 @@ def render_pdf(tender: Tender, layout: int, path: Path) -> None:
             line(f"between {stop.window_start:%H:%M} and {stop.window_end:%H:%M} "
                  f"{zone_abbreviation(stop)} on {stop.window_start:%m/%d/%Y} "
                  f"(ref {stop.reference})", x=72, size=9)  # fmt: skip
+    for text in extra:
+        line(text, size=8)
     page.showPage()
     page.save()

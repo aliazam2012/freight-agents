@@ -15,6 +15,7 @@ from pathlib import Path
 from freight_agents.tms_orders.domain import Source
 from freight_agents.tms_orders.edi204 import write_204
 from freight_agents.tms_orders.ratecon import render_pdf
+from freight_agents.tms_orders.redteam import write_redteam
 from freight_agents.tms_orders.synth import (
     Case,
     email_subject,
@@ -26,7 +27,7 @@ from freight_agents.tms_orders.synth import (
 INBOX = "tenders@exfl.example.com"
 
 
-def _email(case: Case) -> bytes:
+def _email(case: Case, extra: str = "", reference: str | None = None) -> bytes:
     tender = case.tender
     prefix = tender.order.tender_id.split("-")[0].lower()
     message = EmailMessage()
@@ -34,8 +35,9 @@ def _email(case: Case) -> bytes:
     message["To"] = INBOX
     message["Subject"] = email_subject(tender)
     message["Date"] = format_datetime(tender.received_at)
-    message["Message-ID"] = tender.reference
-    message.set_content(render_email(tender, style=case.style), cte="7bit")
+    message["Message-ID"] = reference or tender.reference
+    body = render_email(tender, style=case.style) + (f"\n{extra}\n" if extra else "")
+    message.set_content(body, cte="7bit")
     return bytes(message)
 
 
@@ -78,4 +80,5 @@ def write_fixtures(root: Path, seed: int = 11) -> list[Case]:
     (root / "gold.jsonl").write_text("\n".join(lines) + "\n")
     master = sorted(list(key) for key in locations(seed))
     (root / "locations.json").write_text(json.dumps(master, indent=1) + "\n")
+    write_redteam(root, cases, _email)
     return cases

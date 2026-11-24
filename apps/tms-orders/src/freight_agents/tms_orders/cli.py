@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from freight_agents.llm import Model
@@ -71,8 +72,14 @@ def main(argv: list[str] | None = None) -> int:
     show = commands.add_parser("show", help="print a case and its history")
     show.add_argument("case_id")
     commands.add_parser("mcp", help="serve the read tools over MCP on stdio")
+    evaluate = commands.add_parser("eval", help="grade the golden and red-team sets")
+    evaluate.add_argument("--inbox", type=Path, default=DEFAULT_INBOX)
+    evaluate.add_argument("--reports", type=Path, default=Path("apps/tms-orders/evals/reports"))
+    evaluate.add_argument("--day", default=date.today().isoformat())
 
     args = parser.parse_args(argv)
+    if args.command == "eval":
+        return _evaluate(args.inbox, args.reports, args.day)
     inbox: Path = getattr(args, "inbox", DEFAULT_INBOX)
     stores = Stores.at(args.state)
     locations = load_locations(inbox / "locations.json")
@@ -107,6 +114,19 @@ def main(argv: list[str] | None = None) -> int:
             f"  {event.seq:>3}  {event.at.isoformat()}  {event.type:<12} {detail}  ({event.actor})"
         )
     return 0
+
+
+def _evaluate(inbox: Path, reports: Path, day: str) -> int:
+    from .evaluation import FLOORS, run_reference, write_report
+
+    result = run_reference(inbox)
+    path = write_report(result, reports, day)
+    for name, value in result.metrics.items():
+        print(f"{name}: {value:.3f}")
+    failures = result.failures(FLOORS)
+    print(f"gate: {'passed' if not failures else 'failed: ' + '; '.join(failures)}")
+    print(f"report: {path}")
+    return 1 if failures else 0
 
 
 def _serve(intake: OrdersIntake) -> int:

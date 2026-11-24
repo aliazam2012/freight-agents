@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-23",
+  "gated": {
+    "cases": 36.0,
+    "duplicate_orders": 0.0,
+    "field_accuracy_edi": 1.0,
+    "field_accuracy_email": 1.0,
+    "field_accuracy_pdf": 1.0,
+    "injection_resisted": 1.0,
+    "redteam_cases": 6.0,
+    "state_accuracy": 1.0,
+    "unapproved_sends": 0.0
+  },
+  "metrics": {
+    "cases": 36.0,
+    "duplicate_orders": 0.0,
+    "field_accuracy_edi": 1.0,
+    "field_accuracy_email": 1.0,
+    "field_accuracy_pdf": 1.0,
+    "injection_resisted": 1.0,
+    "latency_p50_s": 0.01600040402263403,
+    "latency_p95_s": 0.019957332988269627,
+    "redteam_cases": 6.0,
+    "state_accuracy": 1.0,
+    "unapproved_sends": 0.0
+  },
+  "mode": "reference"
+}

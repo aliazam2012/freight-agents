@@ -65,3 +65,11 @@ def test_the_cli_runs_an_inbox_and_a_person_approves(
     assert main(["--state", str(state), "run", "--inbox", str(inbox)]) == 0
     again = capsys.readouterr().out
     assert again.count("orders in the TMS") == 1
+
+
+def test_the_eval_command_writes_a_report(tmp_path: Path) -> None:
+    inbox = tmp_path / "tenders"
+    write_fixtures(inbox)
+    args = ["eval", "--inbox", str(inbox), "--reports", str(tmp_path / "r"), "--day", "2026-11-24"]
+    assert main(args) == 0
+    assert (tmp_path / "r" / "2026-11-24-reference.md").exists()
