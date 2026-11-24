@@ -9,7 +9,7 @@ from freight_agents.tms_orders.fixtures import write_fixtures
 from freight_agents.tms_orders.mcp_server import build_orders_server
 from mcp import Client
 
-from .test_workflow import World
+from .conftest import World
 
 
 def _call(server: Any, name: str, args: dict[str, Any]) -> tuple[bool, Any]:
