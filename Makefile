@@ -26,6 +26,7 @@ test:
 
 data:
 	$(UV) run --all-packages python data/generate_claims.py
+	$(UV) run --all-packages python data/generate_tenders.py
 
 eval:
 	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(sys.argv[1:]))" $(ARGS)
