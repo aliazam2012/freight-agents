@@ -113,7 +113,9 @@ class AssessmentDesk:
     def assess(self, case_id: str, fields: ClaimFields, message: EmailMessage) -> CaseView:
         engine = self.stores.engine
         if engine.exists(case_id):
-            return engine.view(case_id)
+            existing = engine.view(case_id)
+            # "assessed" is a step, not a resting state: an earlier hand-off failed.
+            return self._route(case_id) if existing.state == "assessed" else existing
         now = self.clock()
         photos = [
             Photo(name=a.filename, media_type=a.media_type, data=a.data)
@@ -159,6 +161,13 @@ class AssessmentDesk:
             },
             actor="damage-assessor",
         )
+        return self._route(case_id)
+
+    def _route(self, case_id: str) -> CaseView:
+        """Hand a filing amount off, or leave the claim for a person."""
+        engine = self.stores.engine
+        assessment = self.assessment(case_id)
+        recommendation = assessment.recommendation
         amount = recommendation.amount_usd
         if recommendation.needs_person or amount is None or amount <= 0:
             return engine.fire(case_id, "needs_person", actor="rules")

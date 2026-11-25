@@ -190,3 +190,16 @@ def test_hand_off_refuses_an_amount_the_claim_does_not_support(make_intake, amou
     with pytest.raises(ValueError, match="amount"):
         intake.hand_off(case.case_id, amount, {"outcome": "file_full"})
     assert intake.stores.engine.view(case.case_id).state == "ready_to_file"
+
+
+class BrokenAssessor:
+    def assess(self, case_id: str, fields: Any, message: Any) -> None:
+        raise RuntimeError("vision model unavailable")
+
+
+def test_an_assessor_failure_leaves_the_claim_ready_and_says_why(make_intake) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(FIELDS))
+    intake.assessor = BrokenAssessor()
+    case = intake.process(_with_photo("4 chairs broken, claiming $800, PRO 7741-2209."))
+    assert case.state == "ready_to_file"
+    assert case.data["assessment_failed"] == "RuntimeError: vision model unavailable"

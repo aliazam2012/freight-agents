@@ -104,3 +104,28 @@ def test_only_a_claim_that_is_waiting_can_be_resolved(world: World) -> None:
     case = world.claim(["carton-crushed-severe-1.png"])  # already filed by the rules
     with pytest.raises(ValueError, match="not waiting"):
         world.desk.resolve(case.case_id, "U-lee", None)
+
+
+def test_an_assessment_whose_hand_off_failed_resumes_on_the_next_run(tmp_path: Path) -> None:
+    (tmp_path / "tms.json").write_text(json.dumps([SHIPMENT]))
+    filed: list[float] = []
+    failures = [RuntimeError("claims store busy")]
+
+    def hand_off(case_id: str, amount: float, summary: object, by: str) -> None:
+        if failures:
+            raise failures.pop()
+        filed.append(amount)
+
+    desk = AssessmentDesk(
+        Stores.at(tmp_path / "damage"),
+        tms=FixtureTms(tmp_path / "tms.json"),
+        hand_off=hand_off,
+        models=reference_models(labels()),
+        clock=lambda: T0,
+    )
+    message = claim_email(["carton-crushed-severe-1.png"])
+    fields = ClaimFields.model_validate(FIELDS)
+    with pytest.raises(RuntimeError):
+        desk.assess("clm_retry", fields, message)
+    assert desk.assess("clm_retry", fields, message).state == "handed_off"
+    assert filed == [800.0]

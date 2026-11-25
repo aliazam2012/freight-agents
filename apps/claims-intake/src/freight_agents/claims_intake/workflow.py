@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -43,6 +44,8 @@ from . import prompts
 from .domain import ClaimFields, missing_requirements
 from .machine import CLAIMS_MACHINE, REPLY_OVERDUE_DAYS
 from .tools import CaseDeps, build_tools
+
+log = logging.getLogger(__name__)
 
 CLAIMS_ADDRESS = "claims@example.org"
 TRIAGE_ATTEMPTS = 2
@@ -203,7 +206,12 @@ class ClaimsIntake:
             photos = [a for a in message.attachments if a.media_type.startswith("image/")]
             if self.assessor is None or claim.claim_type != "damage" or not photos:
                 return ready
-            self.assessor.assess(case_id, claim, message)
+            try:
+                self.assessor.assess(case_id, claim, message)
+            except Exception as exc:  # the claim stays ready: freight-damage run or a person
+                log.exception("assessing %s failed", case_id)
+                failed = {"assessment_failed": f"{type(exc).__name__}: {exc}"}
+                engine.patch(case_id, failed, actor="workflow")
             return engine.view(case_id)
         engine.fire(case_id, "incomplete", {"missing": missing}, actor="workflow")
 
