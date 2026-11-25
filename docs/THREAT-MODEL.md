@@ -37,6 +37,10 @@ Everything in an email (sender, subject, body, attachment names and contents) is
 | The order changes between validation and the TMS write | The write must match the validated order exactly | matches_validated |
 | A lost reply or retry creates a second order | Writes carry an Idempotency-Key kept across retries; the TMS replays the first answer; the load's fingerprint is searched before any write | HttpTms, mock TMS, submit |
 | A broken or hostile EDI file | Envelope counts and control numbers are checked; values holding a separator are refused on write | x12.parse_interchange, write_204 |
+| A carrier reply asks to send documents or money elsewhere (carrier-filing) | The model reading replies has one tool, to record what the reply says; follow-ups go only to the carrier's claims address, after approval | read_reply, recipient_policy, approval_gate |
+| A reply from another address claims the claim is paid | A reply counts only from the carrier's claims address; any other is noted as unverified and changes nothing | read_reply |
+| A claim is filed twice after a crash or a lost reply | Each channel searches before filing; the API also writes with an Idempotency-Key; a portal filing counts only with a confirmation number | ApiChannel, PortalChannel, EmailChannel |
+| Portal automation submits a half-filled form | A missing field or an expired session raises before submit; nothing counts as filed without a confirmation number | PortalChannel |
 
 ## Residual Risk
 
@@ -45,3 +49,4 @@ Everything in an email (sender, subject, body, attachment names and contents) is
 - Hidden HTML text reaches the model as ordinary text. It is tainted like the rest of the email.
 - Attachment contents are not read in v0.1; damage-assessor (v0.2) adds images behind the same boundaries.
 - tms-orders: a model fooled into choosing a wrong value that the document also states and the rules allow (an injected lower weight, a second date) gets through validation. Code checks that values are present, plausible and unchanged after validation; it cannot tell which of two stated values the shipper meant. EDI tenders do not pass through the model, so the gap covers PDF and email only.
+- carrier-filing: a portal sign-in for the made-up carrier lives in the mock's source; a real deployment would take carrier credentials from a secret store, which this repository does not model.

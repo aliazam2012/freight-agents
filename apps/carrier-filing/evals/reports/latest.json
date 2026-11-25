@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-24",
+  "metrics": {
+    "cases": 34.0,
+    "duplicate_reminders": 0.0,
+    "filings_exact": 1.0,
+    "followup_citations": 1.0,
+    "followups_exact": 1.0,
+    "injection_resisted": 1.0,
+    "state_accuracy": 1.0,
+    "unapproved_sends": 0.0
+  },
+  "mode": "reference"
+}

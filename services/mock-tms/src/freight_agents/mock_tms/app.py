@@ -18,7 +18,6 @@ State lives in SQLite (in memory by default), so a demo can keep orders between 
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import json
 import sqlite3
 import threading
@@ -26,13 +25,19 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
+from freight_agents.mock_kit.idempotency import (
+    KEY_TTL,
+    KeyStore,
+    Problem,
+    install_problems,
+    parse_key,
+)
 from pydantic import BaseModel
 
-KEY_TTL = dt.timedelta(hours=24)
-PROBLEM = "application/problem+json"
-DOCS = "https://github.com/aliazam2012/freight-agents/tree/main/services/mock-tms"
+__all__ = ["KEY_TTL", "OrderIn", "OrderOut", "OrderPatch", "create_app"]
+
 
 Clock = Callable[[], dt.datetime]
 
@@ -60,12 +65,6 @@ class OrderOut(BaseModel):
     updated_at: dt.datetime
 
 
-class Problem(Exception):
-    def __init__(self, status: int, title: str, detail: str) -> None:
-        super().__init__(title)
-        self.status, self.title, self.detail = status, title, detail
-
-
 class Store:
     """Orders and idempotency keys in one SQLite database, behind one lock."""
 
@@ -77,47 +76,9 @@ class Store:
             """
             CREATE TABLE IF NOT EXISTS orders (
                 order_id TEXT PRIMARY KEY, body TEXT NOT NULL, fingerprint TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS keys (
-                key TEXT PRIMARY KEY, request TEXT NOT NULL, created_at TEXT NOT NULL,
-                status INTEGER, response TEXT);
             """
         )
-
-    def begin(self, key: str, route: str, request: str) -> tuple[int, dict[str, Any]] | None:
-        """Claim a key; return the stored answer for a finished replay, or None to proceed."""
-        fingerprint = hashlib.sha256(f"{route}\n{request}".encode()).hexdigest()
-        with self.lock, self.db:
-            self.db.execute(
-                "DELETE FROM keys WHERE created_at < ?", ((self.clock() - KEY_TTL).isoformat(),)
-            )
-            row = self.db.execute(
-                "SELECT request, status, response FROM keys WHERE key = ?", (key,)
-            ).fetchone()
-            if row is None:
-                self.db.execute(
-                    "INSERT INTO keys (key, request, created_at) VALUES (?, ?, ?)",
-                    (key, fingerprint, self.clock().isoformat()),
-                )
-                return None
-        stored, status, response = row
-        if stored != fingerprint:
-            raise Problem(422, "Idempotency-Key reused with a different request",
-                          "A key may be used for one request only.")  # fmt: skip
-        if status is None:
-            raise Problem(409, "A request is outstanding for this Idempotency-Key",
-                          "Retry after the first request finishes.")  # fmt: skip
-        return int(status), json.loads(response)
-
-    def finish(self, key: str, status: int, response: dict[str, Any]) -> None:
-        with self.lock, self.db:
-            self.db.execute(
-                "UPDATE keys SET status = ?, response = ? WHERE key = ?",
-                (status, json.dumps(response), key),
-            )
-
-    def abandon(self, key: str) -> None:
-        with self.lock, self.db:
-            self.db.execute("DELETE FROM keys WHERE key = ? AND status IS NULL", (key,))
+        self.keys = KeyStore(self.db, self.lock, clock)
 
     def create(self, body: OrderIn) -> OrderOut:
         with self.lock, self.db:
@@ -145,16 +106,6 @@ class Store:
                             (out.model_dump_json(), out.order_id))  # fmt: skip
 
 
-def _key(header: str | None) -> str:
-    if header is None:
-        raise Problem(400, "Idempotency-Key is required", "Send a quoted key on every write.")
-    value = header.strip()
-    if len(value) < 3 or not (value.startswith('"') and value.endswith('"')):
-        raise Problem(400, "Idempotency-Key must be a quoted string",
-                      'Structured Field String, for example "8e03978e".')  # fmt: skip
-    return value[1:-1]
-
-
 def create_app(clock: Clock | None = None, db: str | Path = ":memory:") -> FastAPI:
     app = FastAPI(
         title="Mock TMS",
@@ -164,32 +115,14 @@ def create_app(clock: Clock | None = None, db: str | Path = ":memory:") -> FastA
     store = Store(str(db), clock or (lambda: dt.datetime.now(dt.UTC)))
     app.state.store = store
 
-    @app.exception_handler(Problem)
-    async def problem(_: Request, exc: Problem) -> JSONResponse:
-        body = {"type": f"{DOCS}#idempotency", "title": exc.title, "status": exc.status,
-                "detail": exc.detail}  # fmt: skip
-        return JSONResponse(body, status_code=exc.status, media_type=PROBLEM)
-
-    def idempotent(key: str, route: str, request: str, work: Callable[[], OrderOut],
-                   status: int) -> JSONResponse:  # fmt: skip
-        replay = store.begin(key, route, request)
-        if replay is not None:
-            return JSONResponse(replay[1], status_code=replay[0])
-        try:
-            out = work()
-        except Exception:
-            store.abandon(key)
-            raise
-        body = out.model_dump(mode="json")
-        store.finish(key, status, body)
-        return JSONResponse(body, status_code=status)
+    install_problems(app)
 
     @app.post("/orders", status_code=201, response_model=OrderOut)
     def create_order(
         body: OrderIn, idempotency_key: str | None = Header(default=None)
     ) -> JSONResponse:
-        key = _key(idempotency_key)
-        return idempotent(key, "POST /orders", body.model_dump_json(),
+        key = parse_key(idempotency_key)
+        return store.keys.run(key, "POST /orders", body.model_dump_json(),
                           lambda: store.create(body), 201)  # fmt: skip
 
     @app.get("/orders", response_model=list[OrderOut])
@@ -207,7 +140,7 @@ def create_app(clock: Clock | None = None, db: str | Path = ":memory:") -> FastA
     def patch_order(
         order_id: str, body: OrderPatch, idempotency_key: str | None = Header(default=None)
     ) -> JSONResponse:
-        key = _key(idempotency_key)
+        key = parse_key(idempotency_key)
 
         def work() -> OrderOut:
             found = store.get(order_id)
@@ -226,7 +159,7 @@ def create_app(clock: Clock | None = None, db: str | Path = ":memory:") -> FastA
             store.save(out)
             return out
 
-        return idempotent(key, f"PATCH /orders/{order_id}", body.model_dump_json(), work, 200)
+        return store.keys.run(key, f"PATCH /orders/{order_id}", body.model_dump_json(), work, 200)
 
     return app
 

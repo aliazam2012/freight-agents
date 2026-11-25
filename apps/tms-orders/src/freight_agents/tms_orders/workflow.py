@@ -32,6 +32,7 @@ from freight_agents.agentcore.taint import TaintSet
 from freight_agents.agentcore.tools import Risk, Tool, ToolRegistry, tool
 from freight_agents.integrations.documents import DocumentError, pdf_text
 from freight_agents.integrations.email import parse_eml
+from freight_agents.integrations.http import Unavailable
 from freight_agents.integrations.transport import FileTransport, Transport
 from freight_agents.integrations.x12 import X12Error, parse_interchange
 from freight_agents.llm import Model, ModelTurn, ScriptedModel, ToolCall, Usage
@@ -334,7 +335,10 @@ class OrdersIntake:
         )
         outcome = self._run(case, call, "workflow")
         engine = self.stores.engine
-        if outcome.status == "error" and "TmsUnavailable" in (outcome.reason or ""):
+        # A raised outage is not cached by the idempotency hook, so a rerun retries it.
+        if outcome.status == "error" and (outcome.reason or "").startswith(
+            f"{Unavailable.__name__}:"
+        ):
             engine.patch(case.case_id, {"waiting": outcome.reason}, actor="workflow")
             return False  # the TMS is down; a later run resumes here
         if outcome.status not in ("ok", "replayed"):

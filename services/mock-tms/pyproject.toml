@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "A made-up TMS order API with Idempotency-Key semantics, for tests and demos"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115", "httpx>=0.27"]
+dependencies = ["fastapi>=0.115", "httpx>=0.27", "freight-agents-mock-kit"]
+
+[tool.uv.sources]
+freight-agents-mock-kit = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]

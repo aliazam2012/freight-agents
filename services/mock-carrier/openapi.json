@@ -1,0 +1,387 @@
+{
+  "components": {
+    "schemas": {
+      "ClaimIn": {
+        "properties": {
+          "amount_usd": {
+            "title": "Amount Usd",
+            "type": "number"
+          },
+          "bol_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bol Number"
+          },
+          "claim_type": {
+            "enum": [
+              "damage",
+              "shortage",
+              "loss"
+            ],
+            "title": "Claim Type",
+            "type": "string"
+          },
+          "claimant": {
+            "title": "Claimant",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "pro_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pro Number"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "claimant",
+          "pro_number",
+          "bol_number",
+          "claim_type",
+          "description",
+          "amount_usd",
+          "documents"
+        ],
+        "title": "ClaimIn",
+        "type": "object"
+      },
+      "ClaimOut": {
+        "properties": {
+          "acknowledged_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged On"
+          },
+          "channel": {
+            "enum": [
+              "api",
+              "portal"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "claim": {
+            "$ref": "#/components/schemas/ClaimIn"
+          },
+          "claim_number": {
+            "title": "Claim Number",
+            "type": "string"
+          },
+          "claimant": {
+            "title": "Claimant",
+            "type": "string"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "paid",
+                  "declined",
+                  "offered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition"
+          },
+          "disposition_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition Amount"
+          },
+          "disposition_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition On"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "received",
+              "acknowledged",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_number",
+          "reference",
+          "claimant",
+          "channel",
+          "status",
+          "received_on",
+          "acknowledged_on",
+          "disposition",
+          "disposition_amount",
+          "disposition_on",
+          "claim"
+        ],
+        "title": "ClaimOut",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "A made-up carrier claims API with Idempotency-Key semantics.",
+    "title": "Mock carrier claims (EXFL)",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/claims": {
+      "get": {
+        "operationId": "list_claims_api_claims_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "reference",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reference"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClaimOut"
+                  },
+                  "title": "Response List Claims Api Claims Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Claims"
+      },
+      "post": {
+        "operationId": "file_claim_api_claims_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "File Claim"
+      }
+    },
+    "/api/claims/{number}": {
+      "get": {
+        "operationId": "get_claim_api_claims__number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Claim"
+      }
+    }
+  }
+}
