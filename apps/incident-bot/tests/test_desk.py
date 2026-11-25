@@ -1,3 +1,4 @@
+import datetime as dt
 from pathlib import Path
 from typing import Any
 
@@ -139,3 +140,50 @@ def test_runbook_command_posts_cited_passages(world: World) -> None:
     channel = world.declare()
     world.desk.slash(channel, "U-dana", "runbook EDI 204 tenders stopped arriving")
     assert "edi-feed-down" in world.posts_in(channel)[-1]
+
+
+def test_the_same_message_twice_is_one_timeline_note(world: World) -> None:
+    channel = world.declare()
+    message = world.chat.say(channel, "U-lee", "errors climbing")
+    for _ in range(2):
+        world.desk.message(channel, "U-lee", "errors climbing", message.ts, None)
+    timeline = world.desk.incident(world.stores.engine.view("inc-1")).timeline
+    assert [e.kind for e in timeline].count("note") == 1
+
+
+def test_postmortem_prose_never_names_a_person_even_if_the_draft_does() -> None:
+    from freight_agents.incident_bot.desk import render_postmortem
+    from freight_agents.incident_bot.domain import Incident, Severity
+    from freight_agents.incident_bot.drafts import PostmortemDraft
+
+    incident = Incident.declare(
+        "inc-1",
+        "TMS down",
+        "C1",
+        Severity.SEV2,
+        "U-dana",
+        False,
+        dt.datetime(2026, 11, 24, 9, 0, tzinfo=dt.UTC),
+    )
+    blamed = PostmortemDraft(
+        summary="ok",
+        impact="ok",
+        root_cause="<@U-lee> pushed a bad config; U-lee should have known",
+        went_well="ok",
+        was_hard="ok",
+        actions=["U-sam to add a check"],
+    )
+    text = render_postmortem(incident, blamed)
+    prose = text.split("## Root Cause", 1)[1]
+    assert "U-lee" not in prose
+    assert "U-sam" not in prose
+    assert "a responder pushed a bad config" in prose
+    words = render_postmortem(
+        incident,
+        blamed.model_copy(
+            update={"impact": "Users saw delays; Updates were unknown until UTC noon."}
+        ),
+    )
+    assert "Users saw delays; Updates were unknown until UTC noon." in words
+    slack_id = render_postmortem(incident, blamed.model_copy(update={"summary": "U012AB3CD paged"}))
+    assert "a responder paged" in slack_id

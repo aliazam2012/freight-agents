@@ -395,6 +395,8 @@ class IncidentDesk:
         case = self.case_for(channel)
         if case is None or case.state not in POSTING:
             return
+        if any(m["ts"] == ts for m in case.data.get("messages", [])):
+            return  # Slack redelivered it; the first copy is already in the timeline
         messages = [*case.data.get("messages", []), {"user": user, "text": text, "ts": ts}]
         incident = self.incident(case)
         entry = TimelineEntry(at=self.clock(), kind="note", by=user, text=text[:500])
@@ -557,19 +559,30 @@ class IncidentDesk:
         return run_tool(call, registry, pre, post, self.context(case, actor), self.stores.audit)
 
 
+# A Slack mention (<@U012AB3CD>), a Slack user id (U plus 8 or more capitals or digits) or
+# this repository's made-up ids (U-dana). Linear, no nested quantifiers; ordinary words
+# that start with U ("Users", "Update") do not match.
+PERSON = re.compile(r"<@[A-Za-z0-9-]+>|\bU[A-Z0-9]{8,}\b|\bU-[a-z]+\b")
+
+
+def blameless(text: str) -> str:
+    """Postmortem prose talks about systems and decisions: no person is named in it."""
+    return PERSON.sub("a responder", text)
+
+
 def render_postmortem(incident: Incident, d: PostmortemDraft) -> str:
     """The repository's postmortem template, prose from the draft and the timeline from code."""
     timeline = "\n".join(
         f"- {e.at:%Y-%m-%d %H:%M} UTC, {e.kind}: {e.text}" for e in incident.timeline
     )
     sections = {
-        "Summary": d.summary,
-        "Impact": d.impact,
+        "Summary": blameless(d.summary),
+        "Impact": blameless(d.impact),
         "Timeline": timeline,
-        "Root Cause": d.root_cause,
-        "What Went Well": d.went_well,
-        "What Was Hard": d.was_hard,
-        "Actions": "\n".join(f"- {a}" for a in d.actions) or "- none yet",
+        "Root Cause": blameless(d.root_cause),
+        "What Went Well": blameless(d.went_well),
+        "What Was Hard": blameless(d.was_hard),
+        "Actions": "\n".join(f"- {blameless(a)}" for a in d.actions) or "- none yet",
     }
     toc = "\n".join(f"- [{h}](#{h.lower().replace(' ', '-')})" for h in TEMPLATE_HEADINGS)
     body = "\n\n".join(f"## {h}\n\n{sections[h]}" for h in TEMPLATE_HEADINGS)
