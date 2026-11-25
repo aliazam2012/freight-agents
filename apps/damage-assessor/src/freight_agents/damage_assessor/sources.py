@@ -69,6 +69,11 @@ SOURCES: dict[str, Source] = {
             "the shipper.",
         ),
         Source(
+            "practice:severity-to-loss",
+            "Severe or total damage is filed as a loss of the goods; minor or moderate damage "
+            "is filed at the documented cost to repair it.",
+        ),
+        Source(
             "practice:confidence",
             "Code does not act on a finding below the calibrated confidence threshold; a person "
             "looks at the photo.",
