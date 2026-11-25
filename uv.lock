@@ -709,6 +709,7 @@ dependencies = [
     { name = "freight-agents-agentcore" },
     { name = "freight-agents-knowledge" },
     { name = "freight-agents-llm" },
+    { name = "pillow" },
     { name = "pydantic" },
 ]
 
@@ -717,6 +718,7 @@ requires-dist = [
     { name = "freight-agents-agentcore", editable = "packages/agentcore" },
     { name = "freight-agents-knowledge", editable = "packages/knowledge" },
     { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "pillow", specifier = ">=11.0" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
 

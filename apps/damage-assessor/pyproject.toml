@@ -5,6 +5,7 @@ description = "Freight damage photos to structured findings, then a cited claim 
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
+    "pillow>=11.0",
     "pydantic>=2.7",
     "freight-agents-llm",
     "freight-agents-agentcore",
