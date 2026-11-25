@@ -4,7 +4,7 @@ It reads terms from a file kept outside the repository (default
 ~/.config/freight-agents/denylist.txt, one term per line): employer and
 customer names, internal tool names, personal details. The list never ships,
 because a public denylist would name what it protects. No list, no check.
-Usage: python tools/denylist_check.py [root]
+Usage: freight-denylist [root]
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def load_terms(path: Path) -> list[str]:
 
 
 def find(root: Path, terms: list[str]) -> list[tuple[str, str]]:
-    hits = []
+    hits: list[tuple[str, str]] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file() or SKIP_DIRS & set(path.relative_to(root).parts):
             continue
@@ -47,6 +47,11 @@ def main(argv: list[str]) -> int:
         print(f"{path}: contains a denied term")  # the term itself is never printed
     print(f"denylist: {len(hits)} hit(s) against {len(terms)} terms")
     return 1 if hits else 0
+
+
+def run() -> int:
+    """Console entry point: freight-purity, freight-links or freight-denylist."""
+    return main(sys.argv[1:])
 
 
 if __name__ == "__main__":

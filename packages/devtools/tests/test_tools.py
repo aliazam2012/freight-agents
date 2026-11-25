@@ -1,24 +1,10 @@
-import importlib.util
-import sys
 from pathlib import Path
-from types import ModuleType
 
-TOOLS = Path(__file__).resolve().parent.parent
+from freight_agents.devtools import check_links as links
+from freight_agents.devtools import denylist_check as denylist
+from freight_agents.devtools import purity
 
-
-def _load(name: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, TOOLS / f"{name}.py")
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-purity = _load("purity")
-links = _load("check_links")
-denylist = _load("denylist_check")
+REPO = Path(__file__).resolve().parents[3]
 
 
 def _tree(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -77,7 +63,7 @@ def test_purity_passes_numbers_shaped_otherwise(tmp_path: Path) -> None:
 
 
 def test_the_real_repository_is_clean() -> None:
-    assert purity.scan(TOOLS.parent) == []
+    assert purity.scan(REPO) == []
 
 
 def test_link_checker_finds_a_missing_target(tmp_path: Path) -> None:
@@ -93,7 +79,7 @@ def test_link_checker_finds_a_missing_target(tmp_path: Path) -> None:
 
 
 def test_the_real_repository_has_no_broken_links() -> None:
-    assert links.broken(TOOLS.parent) == []
+    assert links.broken(REPO) == []
 
 
 def test_denylist_finds_private_terms_case_insensitively(tmp_path: Path) -> None:

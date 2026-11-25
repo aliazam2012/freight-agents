@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test data eval eval-recorded demo purity audit record forecast
+.PHONY: setup check lint types test data eval eval-recorded demo purity audit forecast
 
 setup:
 	$(UV) sync --all-packages
@@ -53,8 +53,8 @@ demo: data
 	$(UV) run --all-packages python -m freight_agents.claims_intake.demo
 
 purity:
-	python3 tools/purity.py .
-	python3 tools/check_links.py .
+	$(UV) run --all-packages freight-purity .
+	$(UV) run --all-packages freight-links .
 
 # Audit the locked third-party dependencies (workspace packages excluded).
 audit:
@@ -62,8 +62,4 @@ audit:
 	$(UV) tool run --python 3.12 pip-audit==2.9.0 -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off
 	rm -f .audit-requirements.txt
 
-# Spends money: records every app's live model turns under one cap. Needs ANTHROPIC_API_KEY.
-# Sample first and read the projection: make record ARGS="--sample 3 --max-usd 2"
-# Then, with the owner's approval of it:  make record ARGS="--max-usd <approved cap>"
-record:
-	$(UV) run --all-packages python tools/record_all.py $(ARGS)
+# Recording a real model spends money and happens per app: see docs/RUNBOOK-release.md.

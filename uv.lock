@@ -27,6 +27,7 @@ members = [
     "freight-agents-carrier-filing",
     "freight-agents-claims-intake",
     "freight-agents-damage-assessor",
+    "freight-agents-devtools",
     "freight-agents-evals",
     "freight-agents-incident-bot",
     "freight-agents-integrations",
@@ -729,6 +730,11 @@ requires-dist = [
     { name = "pillow", specifier = ">=11.0" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
+
+[[package]]
+name = "freight-agents-devtools"
+version = "0.1.0"
+source = { editable = "packages/devtools" }
 
 [[package]]
 name = "freight-agents-evals"

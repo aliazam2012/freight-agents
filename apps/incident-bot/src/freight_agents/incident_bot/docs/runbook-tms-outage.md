@@ -1,6 +1,6 @@
 ---
 title: Runbook, TMS order API outage (made-up)
-source_url: https://github.com/aliazam2012/freight-agents/blob/main/packages/knowledge/src/freight_agents/knowledge/docs/incidents/runbook-tms-outage.md
+source_url: https://github.com/aliazam2012/slack-incident-bot/blob/main/src/freight_agents/incident_bot/docs/runbook-tms-outage.md
 publisher: freight-agents, a made-up runbook for the demo network
 read_on: 2026-11-24
 ---

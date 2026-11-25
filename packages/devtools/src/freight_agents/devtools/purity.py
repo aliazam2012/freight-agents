@@ -3,7 +3,7 @@
 Flags email addresses outside the documentation domains (RFC 2606), phone
 numbers outside the fictional 555 exchange, home-directory paths, and key-like
 strings. A plain scan, no regex: the inputs are every file in the repository.
-Usage: python tools/purity.py [root]
+Usage: freight-purity [root]
 """
 
 from __future__ import annotations
@@ -133,6 +133,11 @@ def main(argv: list[str]) -> int:
         print(f"{f.path}:{f.line}: {f.kind}: {f.text}")
     print(f"purity: {len(findings)} finding(s)")
     return 1 if findings else 0
+
+
+def run() -> int:
+    """Console entry point: freight-purity, freight-links or freight-denylist."""
+    return main(sys.argv[1:])
 
 
 if __name__ == "__main__":
