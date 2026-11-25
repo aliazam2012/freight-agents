@@ -77,3 +77,17 @@ def test_the_370_summary_says_what_the_regulation_says() -> None:
     assert "may not be declined" not in investigating  # 370.7 has no such rule
     verifying = _section("370.7(c) Verifying the loss of a whole package or shipment")
     assert "certified statement in writing from the consignee" in verifying
+
+
+def test_salvage_question_finds_370_11() -> None:
+    index = Bm25Index(default_corpus())
+    top, _ = index.search("damaged goods refused by the consignee sold as salvage lot number")[0]
+    assert top.heading.startswith("370.11")
+
+
+def test_the_salvage_summary_claims_no_credit_rule() -> None:
+    (claim_file,) = [
+        p for p in default_corpus() if p.heading == "370.11(c) Salvage and the claim file"
+    ]
+    assert "lot number, the money recovered" in claim_file.text
+    assert "does not say how salvage proceeds change the amount of a claim" in claim_file.text

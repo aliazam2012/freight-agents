@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import html
+import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from freight_agents.agentcore.agent import Agent, AgentResult, Budget
 from freight_agents.agentcore.approvals import ApprovalQueue, AuditLog, IdempotencyStore
@@ -43,6 +44,8 @@ from . import prompts
 from .domain import ClaimFields, missing_requirements
 from .machine import CLAIMS_MACHINE, REPLY_OVERDUE_DAYS
 from .tools import CaseDeps, build_tools
+
+log = logging.getLogger(__name__)
 
 CLAIMS_ADDRESS = "claims@example.org"
 TRIAGE_ATTEMPTS = 2
@@ -144,6 +147,12 @@ def recipient_policy(claimant: str) -> PreHook:
     return hook
 
 
+class Assessor(Protocol):
+    """Looks at a damage claim's photos; hands the case off itself, or leaves it for a person."""
+
+    def assess(self, case_id: str, fields: ClaimFields, message: EmailMessage) -> object: ...
+
+
 class ClaimsIntake:
     def __init__(
         self,
@@ -153,8 +162,10 @@ class ClaimsIntake:
         clock: Clock = _utc_now,
         index: Bm25Index | None = None,
         budget: Budget | None = None,
+        assessor: Assessor | None = None,
     ) -> None:
         self.model = model
+        self.assessor = assessor
         self.tms = tms
         self.stores = stores
         self.clock = clock
@@ -188,9 +199,20 @@ class ClaimsIntake:
         case = engine.view(case_id)
         fields = case.data.get("fields") or {k: None for k in ClaimFields.model_fields}
         engine.fire(case_id, "extracted", {"fields": fields}, actor="workflow")
-        missing = missing_requirements(ClaimFields.model_validate(fields))
+        claim = ClaimFields.model_validate(fields)
+        missing = missing_requirements(claim)
         if not missing:
-            return engine.fire(case_id, "complete", actor="workflow")
+            ready = engine.fire(case_id, "complete", actor="workflow")
+            photos = [a for a in message.attachments if a.media_type.startswith("image/")]
+            if self.assessor is None or claim.claim_type != "damage" or not photos:
+                return ready
+            try:
+                self.assessor.assess(case_id, claim, message)
+            except Exception as exc:  # the claim stays ready: freight-damage run or a person
+                log.exception("assessing %s failed", case_id)
+                failed = {"assessment_failed": f"{type(exc).__name__}: {exc}"}
+                engine.patch(case_id, failed, actor="workflow")
+            return engine.view(case_id)
         engine.fire(case_id, "incomplete", {"missing": missing}, actor="workflow")
 
         note = (
@@ -199,6 +221,31 @@ class ClaimsIntake:
         )
         self._run("drafting", prompts.DRAFTING, case_id, record, ["draft_info_request"], note)
         return engine.view(case_id)
+
+    def hand_off(
+        self, case_id: str, amount_usd: float, assessment: dict[str, Any], by: str = "workflow"
+    ) -> CaseView:
+        """File the assessed amount: carrier-filing picks the case up from here.
+
+        The amount must be above zero and no more than the claimant asked for; the
+        claimant's own amount is kept beside it.
+        """
+        case = self.stores.engine.view(case_id)
+        fields = ClaimFields.model_validate(case.data["fields"])
+        claimed = fields.claimed_amount_usd or 0.0
+        if not 0 < amount_usd <= claimed:
+            raise ValueError(f"amount {amount_usd} is outside the claimed {claimed}")
+        assessed = fields.model_copy(update={"claimed_amount_usd": amount_usd})
+        return self.stores.engine.fire(
+            case_id,
+            "handoff",
+            {
+                "fields": assessed.model_dump(mode="json"),
+                "claimant_amount_usd": claimed,
+                "assessment": assessment,
+            },
+            actor=by,
+        )
 
     def approve(self, approval_id: str, approver: str) -> CaseView:
         """A person approved one exact send: run it, then move the case on."""
