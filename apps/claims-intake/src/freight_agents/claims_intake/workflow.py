@@ -33,7 +33,7 @@ from freight_agents.agentcore.tools import Tool, ToolRegistry
 from freight_agents.integrations.email import EmailMessage
 from freight_agents.integrations.tms import TmsClient
 from freight_agents.integrations.transport import FileTransport, Transport
-from freight_agents.knowledge.index import Bm25Index, default_corpus, search_tool
+from freight_agents.knowledge.index import Bm25Index, search_tool
 from freight_agents.llm import Model, TextPart, ToolCall
 from freight_agents.statecore.engine import CaseEngine
 from freight_agents.statecore.machine import CaseView
@@ -43,6 +43,7 @@ from freight_agents.telemetry.meter import CostMeter
 from . import prompts
 from .domain import ClaimFields, missing_requirements
 from .machine import CLAIMS_MACHINE, REPLY_OVERDUE_DAYS
+from .rules import claim_rules
 from .tools import CaseDeps, build_tools
 
 log = logging.getLogger(__name__)
@@ -169,7 +170,7 @@ class ClaimsIntake:
         self.tms = tms
         self.stores = stores
         self.clock = clock
-        self.index = index or Bm25Index(default_corpus())
+        self.index = index or Bm25Index(claim_rules())
         self.budget = budget or Budget(max_turns=6, max_tool_calls=8, max_cost_usd=0.50)
         self.meter = CostMeter()
 

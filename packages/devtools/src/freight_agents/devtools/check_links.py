@@ -1,7 +1,7 @@
 """Check that every relative link in the Markdown files points at a file that exists.
 
 Offline and deterministic: web links and in-page anchors are not fetched.
-Usage: python tools/check_links.py [root]
+Usage: freight-links [root]
 """
 
 from __future__ import annotations
@@ -43,6 +43,11 @@ def main(argv: list[str]) -> int:
         print(f"{source}: broken link {target}")
     print(f"links: {len(problems)} broken")
     return 1 if problems else 0
+
+
+def run() -> int:
+    """Console entry point: freight-purity, freight-links or freight-denylist."""
+    return main(sys.argv[1:])
 
 
 if __name__ == "__main__":

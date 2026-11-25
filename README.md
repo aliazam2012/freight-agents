@@ -104,12 +104,12 @@ uv run freight-claims --state var/live pending
 
 For OpenAI, pass `--model openai --model-name <model id>` with `OPENAI_API_KEY` set.
 
-To measure a real model across all six apps, record their evaluations under one spending cap, then replay the recordings through the same graders (see [the release runbook](docs/RUNBOOK-release.md)):
+To measure a real model, each app records its evaluation under its own cap and replays it through the same graders; [the release runbook](docs/RUNBOOK-release.md) adds the samples into one total for approval:
 
 ```bash
-make record ARGS="--sample 3 --max-usd 2"   # three cases per app: prints the projected cost of the rest
-make record ARGS="--max-usd <approved cap>" # everything, under one cap; resumes if stopped
-make eval-recorded                          # replay every cassette through the same floors
+uv run freight-orders eval --mode record --limit 3 --max-usd 0.5   # a sample: prints the projected cost
+uv run freight-orders eval --mode record --max-usd <its share>     # the rest; resumes if stopped
+make eval-recorded                                                  # replay every cassette
 ```
 
 ## Use It From Claude Code or Codex

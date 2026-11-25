@@ -96,14 +96,12 @@ def load_corpus(directory: Path) -> list[Passage]:
     return passages
 
 
-def default_corpus() -> list[Passage]:
-    """The claim rules: documents directly in docs/."""
-    return _corpus(resources.files("freight_agents.knowledge") / "docs")
+def package_corpus(package: str, folder: str = "docs") -> list[Passage]:
+    """The documents an installed package ships in its `folder`, one passage per section.
 
-
-def topic_corpus(topic: str) -> list[Passage]:
-    """One application's documents, in docs/<topic>/, kept out of the default corpus."""
-    return _corpus(resources.files("freight_agents.knowledge") / "docs" / topic)
+    Each agent keeps its own sourced documents in its package, so they travel with it.
+    """
+    return _corpus(resources.files(package) / folder)
 
 
 def _corpus(docs: Traversable) -> list[Passage]:

@@ -15,7 +15,8 @@ from freight_agents.agentcore.hooks import HookContext
 from freight_agents.agentcore.tools import Risk, Tool, ToolRegistry, strict_schema, tool
 from freight_agents.carrier_filing.deadlines import deadlines
 from freight_agents.carrier_filing.desk import FilingDesk
-from freight_agents.knowledge.index import Bm25Index, SearchIn, default_corpus, search_tool
+from freight_agents.claims_intake.rules import claim_rules
+from freight_agents.knowledge.index import Bm25Index, SearchIn, search_tool
 from freight_agents.llm import ToolSpec
 from freight_agents.mcp.bridge import Route, RouteError, build_server
 from pydantic import BaseModel
@@ -134,7 +135,7 @@ def build_filing_server(desk: FilingDesk) -> Any:
         desk.check(args.case_id)
         return claim(args.case_id)
 
-    rules = search_tool(Bm25Index(default_corpus()))
+    rules = search_tool(Bm25Index(claim_rules()))
     reads: dict[str, Tool] = {
         "get_claim": get_claim,
         "claim_deadlines": claim_deadlines,

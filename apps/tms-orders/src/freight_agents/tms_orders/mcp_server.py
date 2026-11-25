@@ -13,7 +13,7 @@ from typing import Any
 from freight_agents.agentcore.guards import cap_size
 from freight_agents.agentcore.hooks import HookContext
 from freight_agents.agentcore.tools import Risk, Tool, ToolRegistry, strict_schema, tool
-from freight_agents.knowledge.index import Bm25Index, SearchIn, search_tool, topic_corpus
+from freight_agents.knowledge.index import Bm25Index, Passage, SearchIn, package_corpus, search_tool
 from freight_agents.llm import ToolSpec
 from freight_agents.mcp.bridge import Route, RouteError, build_server
 from freight_agents.tms_orders.workflow import OrdersIntake
@@ -53,6 +53,11 @@ class PendingReply(BaseModel):
 
 class ListPendingOut(BaseModel):
     replies: list[PendingReply]
+
+
+def order_rules() -> list[Passage]:
+    """The order rules this package ships in docs/, with their sources."""
+    return package_corpus("freight_agents.tms_orders")
 
 
 def _specs() -> list[ToolSpec]:
@@ -100,7 +105,7 @@ def build_orders_server(intake: OrdersIntake) -> Any:
             ]
         )
 
-    rules = search_tool(Bm25Index(topic_corpus("orders")))
+    rules = search_tool(Bm25Index(order_rules()))
     reads: dict[str, Tool] = {
         "get_case": get_case,
         "list_pending_replies": list_pending_replies,

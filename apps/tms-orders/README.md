@@ -69,7 +69,7 @@ uv run freight-orders mcp                  # read-only tools over MCP on stdio
 
 ## Sources
 
-The rules are summarized, with links and read dates, in the knowledge package's [order rules](../../packages/knowledge/src/freight_agents/knowledge/docs/orders/), which the MCP server can search: the CN and C.H. Robinson X12 204 guides and C.H. Robinson's 990 specification, 49 CFR 172.202, 172.504 and 172.604, 23 U.S.C. 127, C.H. Robinson's trailer equipment guide, USPS Publication 28, and the IETF Idempotency-Key draft. Where the partner guides are silent, this made-up partner's conventions are written in `edi204.py` and never presented as X12 facts. Planning assumptions (road miles, miles per day, the location master) are labeled as such in each finding.
+The rules are summarized, with links and read dates, in this package's [order rules](src/freight_agents/tms_orders/docs/), which the MCP server can search: the CN and C.H. Robinson X12 204 guides and C.H. Robinson's 990 specification, 49 CFR 172.202, 172.504 and 172.604, 23 U.S.C. 127, C.H. Robinson's trailer equipment guide, USPS Publication 28, and the IETF Idempotency-Key draft. Where the partner guides are silent, this made-up partner's conventions are written in `edi204.py` and never presented as X12 facts. Planning assumptions (road miles, miles per day, the location master) are labeled as such in each finding.
 
 ## Limits
 
