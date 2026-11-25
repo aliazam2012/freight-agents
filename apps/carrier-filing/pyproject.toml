@@ -13,6 +13,9 @@ dependencies = [
     "freight-agents-evals",
     "freight-agents-integrations",
     "freight-agents-claims-intake",
+    "freight-agents-knowledge",
+    "freight-agents-mcp",
+    "freight-agents-mock-carrier",
     "playwright>=1.49",
     "reportlab>=4.2",
 ]
@@ -24,6 +27,12 @@ freight-agents-statecore = { workspace = true }
 freight-agents-evals = { workspace = true }
 freight-agents-integrations = { workspace = true }
 freight-agents-claims-intake = { workspace = true }
+freight-agents-knowledge = { workspace = true }
+freight-agents-mcp = { workspace = true }
+freight-agents-mock-carrier = { workspace = true }
+
+[project.scripts]
+freight-filing = "freight_agents.carrier_filing.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.25"]
