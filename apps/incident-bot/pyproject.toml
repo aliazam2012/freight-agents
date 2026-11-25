@@ -6,6 +6,8 @@ license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.7",
+    "slack-bolt>=1.21",
+    "slack-sdk>=3.33",
     "freight-agents-llm",
     "freight-agents-agentcore",
     "freight-agents-statecore",
