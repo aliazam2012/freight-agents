@@ -20,7 +20,7 @@ from freight_agents.claims_intake.workflow import Stores as ClaimsStores
 from freight_agents.damage_assessor.calibration import load_calibration
 from freight_agents.damage_assessor.domain import Finding, Recommendation
 from freight_agents.damage_assessor.extract import Photo, extract
-from freight_agents.damage_assessor.images import load_labels, load_manifest
+from freight_agents.damage_assessor.images import labels_by_image
 from freight_agents.damage_assessor.rules import ClaimFacts, decide
 from freight_agents.damage_assessor.workflow import AssessmentDesk, Stores, reference_models
 from freight_agents.integrations.email import parse_eml
@@ -34,10 +34,7 @@ DEFAULT_TMS = Path("data/demo/tms.json")
 
 
 def labels(data: Path) -> dict[str, Finding]:
-    found = {x.image: x.finding for x in load_labels(data / "synthetic" / "labels.jsonl")}
-    for photo in load_manifest(data / "licensed" / "manifest.json"):
-        found[photo.label.image] = photo.label.finding
-    return found
+    return {name: label.finding for name, label in labels_by_image(data).items()}
 
 
 def show(rec: Recommendation) -> str:
@@ -140,6 +137,18 @@ def _mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _eval(args: argparse.Namespace) -> int:
+    from freight_agents.damage_assessor.evaluation import FLOORS, run, write_report
+
+    result = run(args.data)
+    for name, value in result.metrics.items():
+        print(f"{name}: {value:.2f}")
+    failures = result.failures(FLOORS)
+    print("gate: " + ("passed" if not failures else "failed: " + "; ".join(failures)))
+    print(f"report: {write_report(result, args.reports, args.day)}")
+    return 1 if failures else 0
+
+
 def _no_hand_off(case_id: str, amount: float, summary: object, by: str) -> object:
     raise RuntimeError("this command only reads")
 
@@ -176,6 +185,12 @@ def main(argv: list[str] | None = None) -> int:
 
     commands.add_parser("mcp", help="serve the read tools over MCP on stdio")
 
+    evaluate = commands.add_parser("eval", help="grade the golden shipments; exit 1 on the gate")
+    evaluate.add_argument(
+        "--reports", type=Path, default=Path("apps/damage-assessor/evals/reports")
+    )
+    evaluate.add_argument("--day", default=dt.date.today().isoformat())
+
     for sub in commands.choices.values():
         sub.add_argument("--state", type=Path, default=DEFAULT_STATE)
         sub.add_argument("--claims-state", type=Path, default=DEFAULT_CLAIMS)
@@ -189,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         "waiting": _waiting,
         "resolve": _resolve,
         "mcp": _mcp,
+        "eval": _eval,
     }
     return handlers[args.command](args)
 

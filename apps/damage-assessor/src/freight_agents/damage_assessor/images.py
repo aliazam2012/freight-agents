@@ -77,6 +77,14 @@ def load_labels(path: Path) -> list[ImageLabel]:
     return [ImageLabel.model_validate_json(line) for line in path.read_text().splitlines()]
 
 
+def labels_by_image(data: Path) -> dict[str, ImageLabel]:
+    """Every label in data/damage, synthetic and licensed, keyed by image file name."""
+    found = {x.image: x for x in load_labels(data / "synthetic" / "labels.jsonl")}
+    for photo in load_manifest(data / "licensed" / "manifest.json"):
+        found[photo.label.image] = photo.label
+    return found
+
+
 # What to draw.
 
 

@@ -95,3 +95,11 @@ def test_the_intake_and_the_desk_share_one_flow(tmp_path: Path) -> None:
     world = World(tmp_path)
     assert isinstance(world.intake, ClaimsIntake)
     assert world.intake.assessor is world.desk
+
+
+def test_eval_writes_a_dated_report_and_exits_on_the_gate(tmp_path: Path) -> None:
+    code, out = run("eval", "--reports", str(tmp_path), "--day", "2026-11-25", "--data", str(DATA))
+    assert code == 0
+    assert "gate: passed" in out
+    assert (tmp_path / "2026-11-25-reference.md").exists()
+    assert (tmp_path / "latest.json").exists()
