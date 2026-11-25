@@ -203,3 +203,41 @@ def test_a_declaration_without_a_matching_runbook_cites_incident_practice(world:
     channel = world.declare("declare SEV-3 label printer queue stuck")
     (announcement,) = world.posts_in(channel)
     assert "https://" in announcement
+
+
+def test_slack_worker_threads_and_the_reminder_thread_share_the_desk(world: World) -> None:
+    # Bolt runs each event on a worker thread and `serve` ticks reminders on another.
+    import threading
+
+    channel = world.declare()
+    world.clock.advance(31)
+    start = threading.Barrier(21)
+    errors: list[BaseException] = []
+
+    def say(n: int) -> None:
+        start.wait()
+        try:
+            world.desk.message(channel, "U-dana", f"note {n}", f"1700000000.{n:06d}", None)
+        except BaseException as exc:  # collected and asserted below
+            errors.append(exc)
+
+    def tick() -> None:
+        start.wait()
+        try:
+            world.desk.tick()
+        except BaseException as exc:  # collected and asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=say, args=(n,)) for n in range(20)]
+    threads.append(threading.Thread(target=tick))
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    case = world.desk.case_for(channel)
+    assert case is not None
+    assert sorted(m["text"] for m in case.data["messages"]) == sorted(
+        f"note {n}" for n in range(20)
+    )
+    assert any("reminder: time for a status update" in text for text in world.posts_in(channel))

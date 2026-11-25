@@ -125,3 +125,27 @@ def test_a_timer_for_a_case_that_moved_on_is_skipped(engine: CaseEngine) -> None
     fired = engine.fire_due(START + timedelta(minutes=1))
     assert fired == []
     assert engine.view("c1").history[-1].type == "timer_skipped"
+
+
+def test_the_store_serves_threads_other_than_the_one_that_opened_it(tmp_path: Path) -> None:
+    # A server opens the store once and handles requests on worker threads.
+    import threading
+
+    store = SqliteEventStore(tmp_path / "events.sqlite3")
+    errors: list[BaseException] = []
+
+    def writer(case_id: str) -> None:
+        try:
+            for seq in range(25):
+                store.append(case_id, "note", {"n": seq}, actor="t", expected_seq=seq, at=START)
+        except BaseException as exc:  # collected and asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=writer, args=(f"case-{i}",)) for i in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    assert store.case_ids() == [f"case-{i}" for i in range(8)]
+    assert all(len(store.events(f"case-{i}")) == 25 for i in range(8))

@@ -5,6 +5,10 @@ Code posts inside that channel without asking (reminders, summaries, runbooks, t
 postmortem). Anything addressed outside it, a customer update above all, is a send that
 waits for a person's approval. Channel messages are untrusted: they enter the timeline as
 notes and reach the model only as escaped data; nothing in them can pick a channel.
+
+Slack's worker threads and the reminder thread share one desk, so its entry points
+(slash commands, messages, reminders, approvals) run one at a time under a lock: each is
+a read, a decision and a write on the incident's case, and two at once would collide.
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import re
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -136,6 +141,7 @@ class IncidentDesk:
         self.stores, self.chat, self.models, self.clock = stores, chat, models, clock
         self.status_channel = status_channel
         self.runbooks = runbook_index()
+        self._lock = threading.RLock()
 
     # Lookups.
     def case_for(self, channel: str) -> CaseView | None:
@@ -151,6 +157,10 @@ class IncidentDesk:
 
     # Commands.
     def slash(self, channel: str, user: str, text: str) -> str:
+        with self._lock:
+            return self._slash(channel, user, text)
+
+    def _slash(self, channel: str, user: str, text: str) -> str:
         words = text.split()
         verb = words[0].lower() if words else "help"
         rest = " ".join(words[1:])
@@ -177,6 +187,10 @@ class IncidentDesk:
         return handler(case, user, rest)
 
     def declare(self, user: str, rest: str) -> str:
+        with self._lock:
+            return self._declare(user, rest)
+
+    def _declare(self, user: str, rest: str) -> str:
         found = SEVERITY.search(rest)
         if found is None:
             return "Give a severity: `/incident declare SEV-2 TMS orders failing`."
@@ -401,6 +415,10 @@ class IncidentDesk:
 
     # Channel messages and reminders.
     def message(self, channel: str, user: str, text: str, ts: str, thread_ts: str | None) -> None:
+        with self._lock:
+            self._message(channel, user, text, ts)
+
+    def _message(self, channel: str, user: str, text: str, ts: str) -> None:
         case = self.case_for(channel)
         if case is None or case.state not in POSTING:
             return
@@ -418,6 +436,10 @@ class IncidentDesk:
 
     def tick(self) -> list[str]:
         """Fire due reminders: post them in their incident's channel and set the next one."""
+        with self._lock:
+            return self._tick()
+
+    def _tick(self) -> list[str]:
         done = []
         for timer in self.stores.engine.fire_due(self.clock()):
             case = self.stores.engine.view(timer.case_id)
@@ -459,6 +481,10 @@ class IncidentDesk:
         return done
 
     def approve(self, approval_id: str, approver: str) -> CaseView:
+        with self._lock:
+            return self._approve(approval_id, approver)
+
+    def _approve(self, approval_id: str, approver: str) -> CaseView:
         approvals = self.stores.approvals
         approval = approvals.get(approval_id)
         if approval.case_id is None:
