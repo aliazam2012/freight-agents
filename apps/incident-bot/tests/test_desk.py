@@ -2,6 +2,8 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+import pytest
+from freight_agents.incident_bot.chat import FakeChat
 from freight_agents.incident_bot.desk import TEMPLATE_HEADINGS
 from freight_agents.incident_bot.drafts import reference_model
 from freight_agents.llm import ModelTurn, ScriptedModel, ToolCall, Usage
@@ -241,3 +243,37 @@ def test_slack_worker_threads_and_the_reminder_thread_share_the_desk(world: Worl
         f"note {n}" for n in range(20)
     )
     assert any("reminder: time for a status update" in text for text in world.posts_in(channel))
+
+
+class FlakyChat(FakeChat):
+    """Slack that fails the first reminder post, the way a rate limit or a blip would."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed_in: str | None = None
+
+    def post(self, channel: str, text: str, thread_ts: str | None = None) -> str:
+        if self.failed_in is None and "reminder" in text:
+            self.failed_in = channel
+            raise RuntimeError("Slack is having a moment")
+        return super().post(channel, text, thread_ts)
+
+
+def test_a_failed_reminder_post_keeps_reminders_coming_for_every_incident(
+    world: World, caplog: pytest.LogCaptureFixture
+) -> None:
+    world.chat = world.desk.chat = FlakyChat()
+    channels = [
+        world.declare("declare SEV-2 TMS orders failing"),
+        world.declare("declare SEV-2 EDI feed down"),
+    ]
+    world.clock.advance(31)
+    world.desk.tick()
+    failed = world.chat.failed_in
+    assert failed in channels
+    (other,) = [c for c in channels if c != failed]
+    assert "reminder: time for a status update" in world.posts_in(other)[-1]
+    assert "could not post a reminder" in caplog.text
+    world.clock.advance(30)
+    world.desk.tick()
+    assert "reminder: time for a status update" in world.posts_in(failed)[-1]

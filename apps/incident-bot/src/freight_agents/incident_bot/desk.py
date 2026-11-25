@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import logging
 import re
 import threading
 from collections.abc import Callable
@@ -47,7 +48,7 @@ from freight_agents.incident_bot.machine import INCIDENT_MACHINE, OPEN
 from freight_agents.incident_bot.policy import POLICY, runbook_index
 from freight_agents.incident_bot.slack_app import SeenEvents
 from freight_agents.llm import ToolCall
-from freight_agents.statecore.engine import CaseEngine
+from freight_agents.statecore.engine import CaseEngine, Timer
 from freight_agents.statecore.machine import CaseView
 from freight_agents.statecore.store import SqliteEventStore
 from pydantic import BaseModel
@@ -71,6 +72,9 @@ POLICY_BY_TOOL: dict[str, set[str]] = {
     "post_outside": {*OPEN, "resolved"},
     "search_runbooks": POSTING,
 }
+
+
+log = logging.getLogger(__name__)
 
 
 def _utc_now() -> dt.datetime:
@@ -442,43 +446,51 @@ class IncidentDesk:
     def _tick(self) -> list[str]:
         done = []
         for timer in self.stores.engine.fire_due(self.clock()):
-            case = self.stores.engine.view(timer.case_id)
-            incident = self.incident(case)
-            if timer.event == "update_overdue":
-                self._post(
-                    case,
-                    f"remind-{timer.timer_id}",
-                    (
-                        f"{incident.severity} reminder: time for a status update "
-                        f"(`/incident status ...`). Updates every "
-                        f"{POLICY[incident.severity].internal_every.minutes} minutes."
-                    ),
-                )
-                reschedule(
-                    self.stores.engine, case.case_id, self.clock(), internal=True, customer=False
-                )
-            else:
-                waiting = [
-                    a
-                    for a in self.stores.approvals.pending()
-                    if a.case_id == case.case_id and a.tool == "post_customer_update"
-                ]
-                if waiting:
-                    self._post(
-                        case,
-                        f"cu-wait-{timer.timer_id}",
-                        (
-                            f"Customer update overdue: approval {waiting[0].id} is still waiting "
-                            "for a person."
-                        ),
-                    )
-                else:
-                    self._draft_customer_update(case)
-                reschedule(
-                    self.stores.engine, case.case_id, self.clock(), internal=False, customer=True
-                )
+            try:
+                self._remind(timer)
+            except Exception:
+                # The next reminder is already scheduled; one failed post must not stop
+                # this incident's reminders or any other incident's.
+                log.exception("could not post a reminder for %s (%s)", timer.case_id, timer.event)
             done.append(f"{timer.case_id}:{timer.event}")
         return done
+
+    def _remind(self, timer: Timer) -> None:
+        """Schedule the next reminder first, then post this one."""
+        internal = timer.event == "update_overdue"
+        reschedule(
+            self.stores.engine,
+            timer.case_id,
+            self.clock(),
+            internal=internal,
+            customer=not internal,
+        )
+        case = self.stores.engine.view(timer.case_id)
+        incident = self.incident(case)
+        if internal:
+            self._post(
+                case,
+                f"remind-{timer.timer_id}",
+                (
+                    f"{incident.severity} reminder: time for a status update "
+                    f"(`/incident status ...`). Updates every "
+                    f"{POLICY[incident.severity].internal_every.minutes} minutes."
+                ),
+            )
+            return
+        waiting = [
+            a
+            for a in self.stores.approvals.pending()
+            if a.case_id == case.case_id and a.tool == "post_customer_update"
+        ]
+        if waiting:
+            self._post(
+                case,
+                f"cu-wait-{timer.timer_id}",
+                f"Customer update overdue: approval {waiting[0].id} is still waiting for a person.",
+            )
+        else:
+            self._draft_customer_update(case)
 
     def approve(self, approval_id: str, approver: str) -> CaseView:
         with self._lock:

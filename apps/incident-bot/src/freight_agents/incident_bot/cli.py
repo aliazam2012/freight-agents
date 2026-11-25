@@ -4,16 +4,32 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import logging
 import os
 import sys
 import threading
-import time
 from pathlib import Path
+from typing import Protocol
 
 from freight_agents.incident_bot.chat import FakeChat
 from freight_agents.incident_bot.desk import STATUS_CHANNEL, IncidentDesk, Stores
 
 DEFAULT_STATE = Path("var/incidents")
+log = logging.getLogger(__name__)
+
+
+class Ticks(Protocol):
+    def tick(self) -> list[str]: ...
+
+
+def tick_forever(desk: Ticks, stop: threading.Event, every: float = 30.0) -> None:
+    """Fire reminders until stopped; a failed tick is logged and the next runs on time."""
+    while not stop.is_set():
+        try:
+            desk.tick()
+        except Exception:
+            log.exception("reminder tick failed; trying again in %s seconds", every)
+        stop.wait(every)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -115,12 +131,7 @@ def _serve(state: Path) -> int:
         status_channel=os.environ.get("INCIDENT_STATUS_CHANNEL", STATUS_CHANNEL),
     )
 
-    def ticker() -> None:
-        while True:
-            desk.tick()
-            time.sleep(30)
-
-    threading.Thread(target=ticker, daemon=True).start()
+    threading.Thread(target=tick_forever, args=(desk, threading.Event()), daemon=True).start()
     run_socket_mode(build_slack_app(desk, client=client, seen=stores.seen), app_token)
     return 0
 

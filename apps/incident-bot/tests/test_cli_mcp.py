@@ -67,3 +67,24 @@ def test_serve_needs_tokens_from_the_environment(
     monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
     monkeypatch.delenv("SLACK_APP_TOKEN", raising=False)
     assert main(["--state", str(tmp_path), "serve"]) == 2
+
+
+def test_the_reminder_loop_outlives_a_failed_tick(caplog: pytest.LogCaptureFixture) -> None:
+    import threading
+
+    from freight_agents.incident_bot.cli import tick_forever
+
+    stop = threading.Event()
+    calls: list[int] = []
+
+    class Desk:
+        def tick(self) -> list[str]:
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("database is locked")
+            stop.set()
+            return []
+
+    tick_forever(Desk(), stop, every=0)
+    assert len(calls) == 2
+    assert "reminder tick failed" in caplog.text
