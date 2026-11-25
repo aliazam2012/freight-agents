@@ -33,6 +33,7 @@ eval:
 	$(UV) run --all-packages freight-forecast eval --reports var/forecast/eval-reports
 	$(UV) run --all-packages freight-orders eval --reports var/orders/eval-reports
 	$(UV) run --all-packages freight-filing eval --reports var/filing/eval-reports
+	$(UV) run --all-packages freight-incidents eval --reports var/incidents/eval-reports
 
 # Backtest every forecasting model and write the dated report (about 20 seconds).
 forecast:

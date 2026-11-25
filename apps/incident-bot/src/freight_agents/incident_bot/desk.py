@@ -197,7 +197,16 @@ class IncidentDesk:
         case = engine.view(incident_id)
         level = POLICY[incident.severity]
         hits = self.runbooks.search(title, k=1)
-        runbook = f"\nRunbook: {hits[0][0].title} ({hits[0][0].source_url})" if hits else ""
+        if hits and hits[0][0].doc_id.startswith("runbook-"):
+            runbook = f"\nRunbook: {hits[0][0].title} ({hits[0][0].source_url})"
+        else:
+            # No runbook for this one: point at the incident practice the team follows.
+            practice = self.runbooks.search(
+                "incident commander roles living incident document", k=1
+            )[0][0]
+            runbook = (
+                f"\nNo runbook matched; incident practice: {practice.title} ({practice.source_url})"
+            )
         customers = (
             (
                 "\nCustomer updates every 20 minutes for the first two hours, each approved "
@@ -427,7 +436,22 @@ class IncidentDesk:
                     self.stores.engine, case.case_id, self.clock(), internal=True, customer=False
                 )
             else:
-                self._draft_customer_update(case)
+                waiting = [
+                    a
+                    for a in self.stores.approvals.pending()
+                    if a.case_id == case.case_id and a.tool == "post_customer_update"
+                ]
+                if waiting:
+                    self._post(
+                        case,
+                        f"cu-wait-{timer.timer_id}",
+                        (
+                            f"Customer update overdue: approval {waiting[0].id} is still waiting "
+                            "for a person."
+                        ),
+                    )
+                else:
+                    self._draft_customer_update(case)
                 reschedule(
                     self.stores.engine, case.case_id, self.clock(), internal=False, customer=True
                 )

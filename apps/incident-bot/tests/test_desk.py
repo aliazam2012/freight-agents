@@ -187,3 +187,19 @@ def test_postmortem_prose_never_names_a_person_even_if_the_draft_does() -> None:
     assert "Users saw delays; Updates were unknown until UTC noon." in words
     slack_id = render_postmortem(incident, blamed.model_copy(update={"summary": "U012AB3CD paged"}))
     assert "a responder paged" in slack_id
+
+
+def test_an_unapproved_customer_update_is_called_out_on_the_next_reminder(world: World) -> None:
+    channel = world.declare()
+    world.clock.advance(21)
+    world.desk.tick()
+    world.clock.advance(20)
+    world.desk.tick()
+    assert len(world.stores.approvals.pending()) == 1
+    assert "still waiting" in world.posts_in(channel)[-1]
+
+
+def test_a_declaration_without_a_matching_runbook_cites_incident_practice(world: World) -> None:
+    channel = world.declare("declare SEV-3 label printer queue stuck")
+    (announcement,) = world.posts_in(channel)
+    assert "https://" in announcement

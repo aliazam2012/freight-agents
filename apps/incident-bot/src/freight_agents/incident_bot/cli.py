@@ -23,7 +23,21 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("demo", help="play one incident against an in-memory Slack")
     commands.add_parser("serve", help="run the bot in a Slack workspace (Socket Mode)")
     commands.add_parser("mcp", help="serve the read tools over MCP on stdio")
+    evaluate = commands.add_parser("eval", help="play every scenario and grade it")
+    evaluate.add_argument("--reports", type=Path, default=Path("apps/incident-bot/evals/reports"))
+    evaluate.add_argument("--day", default=dt.date.today().isoformat())
     args = parser.parse_args(argv)
+    if args.command == "eval":
+        from freight_agents.incident_bot.evaluation import FLOORS, run, write_report
+
+        result = run()
+        path = write_report(result, args.reports, args.day)
+        for name, value in result.metrics.items():
+            print(f"{name}: {value:.2f}")
+        failures = result.failures(FLOORS)
+        print(f"gate: {'passed' if not failures else 'failed: ' + '; '.join(failures)}")
+        print(f"report: {path}")
+        return 1 if failures else 0
     if args.command == "demo":
         return _demo(args.state)
     if args.command == "serve":
