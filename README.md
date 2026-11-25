@@ -59,7 +59,7 @@ Each row points at the code or the public issue that proves it. Shipped means me
 | Integrations and durable timers | [carrier-filing](apps/carrier-filing/): one claim filing per API, portal (headless Chromium) or email channel, 49 CFR 370 deadlines as timers, [ADR-0011](docs/adr/ADR-0011-one-filing-per-channel.md), [ADR-0012](docs/adr/ADR-0012-durable-deadlines.md) | Shipped |
 | Document AI (PDF, EDI) | [tms-orders](apps/tms-orders/): X12 204 parser and 990 writer, PDF and email extraction through one strict tool, [ADR-0009](docs/adr/ADR-0009-parsers-before-models.md) | Shipped; live PDF and email runs with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
 | Exactly-once writes over HTTP | [mock TMS](services/mock-tms/) with Idempotency-Key semantics, a [resilient client](apps/tms-orders/src/freight_agents/tms_orders/tms.py), [ADR-0010](docs/adr/ADR-0010-idempotency-at-the-api.md) | Shipped |
-| Agents in a team's workflow | incident-bot (Slack) | Planned, [v0.5](https://github.com/aliazam2012/freight-agents/issues/14) |
+| Agents in a team's workflow | [incident-bot](apps/incident-bot/): Slack incidents with cadence reminders, cited runbooks, approved customer updates and a blameless postmortem, [ADR-0013](docs/adr/ADR-0013-chat-port-and-fake-slack.md) | Shipped |
 | Classic machine learning | [volume-forecast](apps/volume-forecast/): rolling-origin backtest, conformal ranges, [report](apps/volume-forecast/reports/2026-11-23-backtest.md), [ADR-0008](docs/adr/ADR-0008-forecasting-models.md) | Shipped |
 | Agents that cannot invent numbers | [planner tools and grounding grader](apps/volume-forecast/src/freight_agents/volume_forecast/), [evaluation](apps/volume-forecast/evals/reports/2026-11-23-reference.md) | Shipped; live runs with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
 
@@ -75,12 +75,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams, [docs/adr](do
 | damage-assessor | Photos and description to a claim recommendation | planned, v0.2 |
 | carrier-filing | Files a complete claim once through the carrier's API, portal or email; holds the carrier to the 30 and 120 day deadlines with approved follow-ups | v0.3 |
 | tms-orders | Load tender by EDI 204, PDF or email to one validated TMS order; a 990 or email reply after approval | v0.4 |
-| incident-bot | Slack incident management with approved status updates | planned, v0.5 |
+| incident-bot | Runs an incident in its Slack channel: cadence reminders by severity, cited runbooks, approved customer updates, a blameless postmortem | v0.5 |
 | volume-forecast | Backtested daily volume forecasts with measured ranges; an agent answers planners' questions through tools and cites the run | v0.6 |
 
 ## Results
 
 **claims-intake.** The reference run (scripted correct turns, plus red-team turns that fall for every injection) passes the gate: field accuracy 1.00, state accuracy 1.00, sends without approval 0, injection resisted 1.00. It proves the pipeline, hooks and graders, not a model: [report](apps/claims-intake/evals/reports/). Results for a real model come from a recorded run and are added with v0.1.0.
+
+**incident-bot** ([report](apps/incident-bot/evals/reports/2026-11-24-reference.md)): 20 incidents played minute by minute against an in-memory Slack; reminders and customer-update reminders at exactly the hand-written expected minutes, 0 posts outside the incident channels, 0 customer updates without approval, every postmortem complete and blameless, 6 of 6 red-team cases resisted.
 
 **carrier-filing** ([report](apps/carrier-filing/evals/reports/2026-11-24-reference.md)): 34 claims played for 200 days each across the three channels, with carrier answers on both sides of the day-30 and day-120 lines, seven faults and three red-team replies; every claim filed exactly once (none for a changed portal form), exactly the follow-ups the deadlines call for, 0 unapproved sends, 0 reminders fired twice, 3 of 3 injections resisted.
 
@@ -132,6 +134,7 @@ packages/telemetry      OpenTelemetry spans with GenAI attributes, cost meter
 apps/claims-intake      claim email to a complete case
 apps/tms-orders         load tenders to exactly-once TMS orders
 apps/carrier-filing     claims filed once by API, portal or email; 49 CFR 370 deadlines
+apps/incident-bot       Slack incidents: cadence, runbooks, approved updates, postmortems
 apps/volume-forecast    backtested forecasts and the planner agent
 services/mock-tms       a made-up TMS order API with Idempotency-Key semantics
 services/mock-carrier   a made-up carrier claims API and web portal

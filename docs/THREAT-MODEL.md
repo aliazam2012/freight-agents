@@ -41,6 +41,10 @@ Everything in an email (sender, subject, body, attachment names and contents) is
 | A reply from another address claims the claim is paid | A reply counts only from the carrier's claims address; any other is noted as unverified and changes nothing | read_reply |
 | A claim is filed twice after a crash or a lost reply | Each channel searches before filing; the API also writes with an Idempotency-Key; a portal filing counts only with a confirmation number | ApiChannel, PortalChannel, EmailChannel |
 | Portal automation submits a half-filled form | A missing field or an expired session raises before submit; nothing counts as filed without a confirmation number | PortalChannel |
+| Text in an incident channel asks the bot to post elsewhere or tell customers something (incident-bot) | Channel messages only enter the timeline; the model drafts through record-only tools; code posts without approval only in the incident's own channel; customer updates and outside posts wait for approval | IncidentDesk, channel_policy, approval_gate |
+| Text claims a severity change or an approval | Only slash commands change an incident; approvals are a person's action on the desk | IncidentDesk |
+| A postmortem names a person | Prose sections replace Slack mentions and user ids with "a responder" before publishing | blameless |
+| Slack redelivers an event | Event ids are handled once, and a message already in the timeline is not recorded again | SeenEvents, IncidentDesk.message |
 
 ## Residual Risk
 
