@@ -23,11 +23,14 @@ import json
 import tempfile
 import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from freight_agents.evals.graders import field_matches
+from freight_agents.evals.recording import RecordResult, record_cases, replay_model
+from freight_agents.llm import Model
 from freight_agents.tms_orders.domain import Tender
 from freight_agents.tms_orders.redteam import ATTACKER_STREET
 from freight_agents.tms_orders.synth import Location
@@ -184,7 +187,78 @@ def run_reference(
     return OrdersEval(metrics, per_case, redteam)
 
 
-def write_report(result: OrdersEval, directory: Path, day: str) -> Path:
+def model_read_cases(inbox: Path) -> dict[str, str]:
+    """Tenders the model reads (PDF, email and the red team), by file name, to case id.
+
+    EDI tenders go to the parser and never reach a model, so they need no cassette.
+    """
+    cases = {}
+    for name in ("gold.jsonl", "redteam.jsonl"):
+        for line in (inbox / name).read_text().splitlines():
+            row = json.loads(line)
+            if row.get("source") != "edi":
+                cases[Path(row["file"]).name] = row["id"]
+    return cases
+
+
+def _files(inbox: Path) -> dict[str, str]:
+    files = {}
+    for name in ("gold.jsonl", "redteam.jsonl"):
+        for line in (inbox / name).read_text().splitlines():
+            row = json.loads(line)
+            files[row["id"]] = row["file"]
+    return files
+
+
+def recorded_models(inbox: Path, cassettes: Path, model_name: str) -> ModelFor:
+    cases = model_read_cases(inbox)
+
+    def model_for(path: Path) -> Model:
+        return replay_model(cases[path.name], cassettes, model_name)
+
+    return model_for
+
+
+def run_recorded(inbox: Path, cassettes: Path, model_name: str) -> OrdersEval:
+    """The same run and graders as reference mode, on a real model's recorded turns."""
+    return run_reference(inbox, models=recorded_models(inbox, cassettes, model_name))
+
+
+def record(
+    inbox: Path,
+    cassettes: Path,
+    live: ModelFor,
+    cap: float,
+    limit: int | None = None,
+    out: Callable[[str], object] = print,
+) -> RecordResult:
+    """Record a live model on every tender it reads, each in a fresh world, under the cap."""
+    files = _files(inbox)
+    ids = list(model_read_cases(inbox).values())
+    known = load_locations(inbox / "locations.json")
+
+    def run_one(case_id: str, model: Model) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            _world(Path(tmp), lambda path: model, known).process(inbox / files[case_id])
+
+    return record_cases(
+        ids[:limit] if limit else ids,
+        run_one,
+        lambda case_id: live(inbox / files[case_id]),
+        cassettes,
+        cap,
+        total=len(ids),
+        out=out,
+    )
+
+
+def write_report(
+    result: OrdersEval,
+    directory: Path,
+    day: str,
+    mode: str = "reference",
+    model: str | None = None,
+) -> Path:
     failures = result.failures(FLOORS)
     gate = "passed" if not failures else "failed: " + "; ".join(failures)
     m = result.metrics
@@ -205,9 +279,15 @@ def write_report(result: OrdersEval, directory: Path, day: str) -> Path:
         f"Cases: {int(m['cases'])} tenders (12 per input type) and {int(m['redteam_cases'])} "
         f"red-team tenders. Gate: {gate}.",
         "",
-        "EDI rows measure the parser. PDF and email rows run in reference mode: the scripted "
-        "model records the gold order, so they check the pipeline and the guards, not a model. "
-        "In the red-team cases the scripted model obeys the injected instruction on purpose.",
+        (
+            "EDI rows measure the parser. PDF and email rows run in reference mode: the scripted "
+            "model records the gold order, so they check the pipeline and the guards, not a "
+            "model. In the red-team cases the scripted model obeys the injected instruction on "
+            "purpose."
+            if mode == "reference"
+            else "EDI rows measure the parser. PDF, email and red-team rows replay the recorded "
+            f"turns of {model}: a real model reading every tender, graded by the same floors."
+        ),
         "",
         "## Metrics",
         "",
@@ -230,9 +310,9 @@ def write_report(result: OrdersEval, directory: Path, day: str) -> Path:
           for c in result.per_case],
     ]  # fmt: skip
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{day}-reference.md"
+    path = directory / f"{day}-{mode}.md"
     path.write_text("\n".join(lines) + "\n")
     stable = {k: v for k, v in m.items() if "latency" not in k}
-    latest = {"date": day, "mode": "reference", "metrics": m, "gated": stable}
+    latest = {"date": day, "mode": mode, "model": model, "metrics": m, "gated": stable}
     (directory / "latest.json").write_text(json.dumps(latest, indent=2, sort_keys=True) + "\n")
     return path

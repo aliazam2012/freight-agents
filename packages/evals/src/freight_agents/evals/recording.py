@@ -126,17 +126,36 @@ class StaleCassette(RuntimeError):
     """A case's cassette is missing or no longer matches what the model is asked."""
 
 
-def replay[T](
-    case_id: str, cassettes: Path, model_name: str, run_one: Callable[[str, Model], T]
-) -> T:
-    """Run one case on its recorded turns; a missing or stale cassette names the case."""
+class _NamedReplay:
+    """A cassette replay whose misses name the case they belong to."""
+
+    def __init__(self, case_id: str, inner: ReplayModel) -> None:
+        self._case_id, self._inner = case_id, inner
+
+    @property
+    def name(self) -> str:
+        return self._inner.name
+
+    def complete(self, system: str, messages: list[Message], tools: list[ToolSpec]) -> ModelTurn:
+        try:
+            return self._inner.complete(system, messages, tools)
+        except CassetteMiss as exc:
+            raise StaleCassette(
+                f"{self._case_id}: {exc}; the prompt or tools changed since it was recorded: "
+                "re-record this case"
+            ) from exc
+
+
+def replay_model(case_id: str, cassettes: Path, model_name: str) -> Model:
+    """The recorded turns of one case; a missing or stale cassette names the case."""
     path = cassettes / f"{case_id}.jsonl"
     if not path.exists():
         raise StaleCassette(f"{case_id}: no cassette; record it first")
-    try:
-        return run_one(case_id, ReplayModel(path, name=model_name))
-    except CassetteMiss as exc:
-        raise StaleCassette(
-            f"{case_id}: {exc}; the prompt or tools changed since it was recorded: "
-            "re-record this case"
-        ) from exc
+    return _NamedReplay(case_id, ReplayModel(path, name=model_name))
+
+
+def replay[T](
+    case_id: str, cassettes: Path, model_name: str, run_one: Callable[[str, Model], T]
+) -> T:
+    """Run one case on its recorded turns."""
+    return run_one(case_id, replay_model(case_id, cassettes, model_name))

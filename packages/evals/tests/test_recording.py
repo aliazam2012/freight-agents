@@ -95,3 +95,15 @@ def test_replay_names_the_case_whose_cassette_is_stale_or_missing(tmp_path: Path
         replay("a", tmp_path, "claude-opus-5-5", changed)
     with pytest.raises(StaleCassette, match="b: no cassette"):
         replay("b", tmp_path, "claude-opus-5-5", run_one)
+
+
+def test_a_replay_model_names_its_case_when_the_request_changed(tmp_path: Path) -> None:
+    from freight_agents.evals.recording import StaleCassette, replay_model
+
+    record_cases(["a"], run_one, lambda c: priced(), tmp_path, 5.0, out=lambda s: None)
+    model = replay_model("a", tmp_path, "claude-opus-5-5")
+    run_one("a", model)
+    with pytest.raises(StaleCassette, match="a: "):
+        run_one("a, changed", model)
+    with pytest.raises(StaleCassette, match="b: no cassette"):
+        replay_model("b", tmp_path, "claude-opus-5-5")

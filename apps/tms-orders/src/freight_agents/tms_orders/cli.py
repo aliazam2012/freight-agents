@@ -76,10 +76,17 @@ def main(argv: list[str] | None = None) -> int:
     evaluate.add_argument("--inbox", type=Path, default=DEFAULT_INBOX)
     evaluate.add_argument("--reports", type=Path, default=Path("apps/tms-orders/evals/reports"))
     evaluate.add_argument("--day", default=date.today().isoformat())
+    evaluate.add_argument(
+        "--mode", choices=["reference", "recorded", "record"], default="reference"
+    )
+    evaluate.add_argument("--cassettes", type=Path, default=Path("apps/tms-orders/evals/cassettes"))
+    evaluate.add_argument("--model-name", default="claude-opus-5-5")
+    evaluate.add_argument("--max-usd", type=float, default=0.0, help="record: the approved cap")
+    evaluate.add_argument("--limit", type=int, help="record: only the first N tenders")
 
     args = parser.parse_args(argv)
     if args.command == "eval":
-        return _evaluate(args.inbox, args.reports, args.day)
+        return _evaluate(args)
     inbox: Path = getattr(args, "inbox", DEFAULT_INBOX)
     stores = Stores.at(args.state)
     locations = load_locations(inbox / "locations.json")
@@ -116,11 +123,29 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _evaluate(inbox: Path, reports: Path, day: str) -> int:
-    from .evaluation import FLOORS, run_reference, write_report
+def _evaluate(args: argparse.Namespace) -> int:
+    from freight_agents.evals.recording import StaleCassette
 
-    result = run_reference(inbox)
-    path = write_report(result, reports, day)
+    from .evaluation import FLOORS, record, run_recorded, run_reference, write_report
+
+    if args.mode == "record":
+        from freight_agents.llm.anthropic_adapter import AnthropicModel
+
+        def live(path: Path) -> Model:
+            return AnthropicModel(model=args.model_name, effort="low")
+
+        return record(args.inbox, args.cassettes, live, args.max_usd, args.limit).code
+    try:
+        result = (
+            run_reference(args.inbox)
+            if args.mode == "reference"
+            else run_recorded(args.inbox, args.cassettes, args.model_name)
+        )
+    except StaleCassette as exc:
+        print(f"FAIL {exc}")
+        return 2
+    model = None if args.mode == "reference" else args.model_name
+    path = write_report(result, args.reports, args.day, args.mode, model)
     for name, value in result.metrics.items():
         print(f"{name}: {value:.3f}")
     failures = result.failures(FLOORS)
