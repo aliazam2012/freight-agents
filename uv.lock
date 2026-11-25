@@ -26,6 +26,7 @@ members = [
     "freight-agents-agentcore",
     "freight-agents-carrier-filing",
     "freight-agents-claims-intake",
+    "freight-agents-damage-assessor",
     "freight-agents-evals",
     "freight-agents-incident-bot",
     "freight-agents-integrations",
@@ -697,6 +698,25 @@ requires-dist = [
     { name = "freight-agents-llm", editable = "packages/llm" },
     { name = "freight-agents-mcp", editable = "packages/mcp" },
     { name = "freight-agents-statecore", editable = "packages/statecore" },
+    { name = "pydantic", specifier = ">=2.7" },
+]
+
+[[package]]
+name = "freight-agents-damage-assessor"
+version = "0.1.0"
+source = { editable = "apps/damage-assessor" }
+dependencies = [
+    { name = "freight-agents-agentcore" },
+    { name = "freight-agents-knowledge" },
+    { name = "freight-agents-llm" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "freight-agents-agentcore", editable = "packages/agentcore" },
+    { name = "freight-agents-knowledge", editable = "packages/knowledge" },
+    { name = "freight-agents-llm", editable = "packages/llm" },
     { name = "pydantic", specifier = ">=2.7" },
 ]
 
