@@ -243,21 +243,30 @@ class EmailChannel:
                 )
         return None
 
-    def file(self, packet: ClaimPacket, documents: list[Path]) -> FilingReceipt:
+    def compose(self, packet: ClaimPacket) -> dict[str, str]:
+        """The exact message a person approves and the channel then sends."""
         letter = cover_letter(packet)
-        existing = self.find(packet.reference)
+        body = f"Date: {self.clock().date().isoformat()}\n\n{letter}"
+        return {
+            "to": self.carrier.endpoint,
+            "subject": self._subject(packet.reference),
+            "body": body,
+        }
+
+    def send(self, reference: str, message: dict[str, str]) -> FilingReceipt:
+        """Send an approved message once; a second call finds the first."""
+        existing = self.find(reference)
         if existing is not None:
             return existing
-        body = f"Date: {self.clock().date().isoformat()}\n\n{letter}"
         message_id = self.transport.send(
-            sender=self.sender,
-            to=self.carrier.endpoint,
-            subject=self._subject(packet.reference),
-            body=body,
+            sender=self.sender, to=message["to"], subject=message["subject"], body=message["body"]
         )
         return FilingReceipt(
             carrier_claim_number=f"pending:{message_id}",
             channel="email",
-            reference=packet.reference,
+            reference=reference,
             received_on=self.clock().date(),
         )
+
+    def file(self, packet: ClaimPacket, documents: list[Path]) -> FilingReceipt:
+        return self.send(packet.reference, self.compose(packet))

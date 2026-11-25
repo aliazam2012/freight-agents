@@ -21,21 +21,31 @@ class Carrier(BaseModel):
     name: str
     channel: Channel
     endpoint: str  # API base URL, portal URL, or the claims mailbox
+    claims_email: str  # where follow-ups go, whatever the filing channel
 
 
 # Made-up carriers, checked in docs/NAMES.md; one per filing channel.
 CARRIERS = [
     Carrier(
-        scac="EXFL", name="Example Freight Lines", channel="api", endpoint="http://carrier.test/api"
+        scac="EXFL",
+        name="Example Freight Lines",
+        channel="api",
+        endpoint="http://carrier.test/api",
+        claims_email="claims@exfl.example.com",
     ),
     Carrier(
         scac="EXME",
         name="Example Motor Express",
         channel="portal",
         endpoint="http://carrier.test/portal",
+        claims_email="claims@exme.example.com",
     ),
     Carrier(
-        scac="EXTL", name="Example Truck Lines", channel="email", endpoint="claims@extl.example.com"
+        scac="EXTL",
+        name="Example Truck Lines",
+        channel="email",
+        endpoint="claims@extl.example.com",
+        claims_email="claims@extl.example.com",
     ),
 ]
 
