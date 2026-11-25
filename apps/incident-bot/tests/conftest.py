@@ -1,15 +1,19 @@
 """A stub of the Slack Web API, served over HTTP so slack_sdk talks to it as to Slack."""
 
+import datetime as dt
 import itertools
 import json
 import threading
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
 import uvicorn
 from fastapi import FastAPI, Request
+from freight_agents.incident_bot.chat import FakeChat
+from freight_agents.incident_bot.desk import IncidentDesk, Stores
 
 
 class SlackStub:
@@ -68,3 +72,41 @@ def slack() -> Iterator[tuple[SlackStub, str]]:
     yield stub, f"http://127.0.0.1:{port}/api/"
     server.should_exit = True
     thread.join(timeout=5)
+
+
+T0 = dt.datetime(2026, 11, 24, 9, 0, tzinfo=dt.UTC)
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = T0
+
+    def __call__(self) -> dt.datetime:
+        return self.now
+
+    def advance(self, minutes: int) -> None:
+        self.now += dt.timedelta(minutes=minutes)
+
+
+class World:
+    def __init__(self, root: Path) -> None:
+        self.clock = Clock()
+        self.chat = FakeChat()
+        self.stores = Stores.at(root, self.clock)
+        self.desk = IncidentDesk(self.stores, self.chat, clock=self.clock)
+
+    def declare(self, text: str = "declare SEV-2 TMS orders failing +customer") -> str:
+        reply = self.desk.slash("C-general", "U-dana", text)
+        assert reply.startswith("Declared")
+        return self.chat.posts[-1].channel
+
+    def posts_in(self, channel: str) -> list[str]:
+        return [p.text for p in self.chat.posts if p.channel == channel]
+
+    def outside(self, channel: str) -> list[Any]:
+        return [p for p in self.chat.posts if p.channel != channel]
+
+
+@pytest.fixture
+def world(tmp_path: Path) -> World:
+    return World(tmp_path)

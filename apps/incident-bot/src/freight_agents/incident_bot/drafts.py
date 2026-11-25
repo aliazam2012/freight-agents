@@ -147,9 +147,8 @@ def reference_model(kind: Kind, incident: Incident) -> Model:
             "record_draft",
             {
                 "text": (
-                    f"We are investigating an issue affecting {incident.title.lower()}. "
-                    "Some customers may see delays. We will post the next update within "
-                    "20 minutes."
+                    f"We are investigating a problem: {incident.title}. Some customers may "
+                    "see delays. We will post the next update within 20 minutes."
                 )
             },
         )

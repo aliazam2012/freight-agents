@@ -1,49 +1,11 @@
-import datetime as dt
 from pathlib import Path
 from typing import Any
 
-import pytest
-from freight_agents.incident_bot.chat import FakeChat
-from freight_agents.incident_bot.desk import TEMPLATE_HEADINGS, IncidentDesk, Stores
+from freight_agents.incident_bot.desk import TEMPLATE_HEADINGS
 from freight_agents.incident_bot.drafts import reference_model
 from freight_agents.llm import ModelTurn, ScriptedModel, ToolCall, Usage
 
-T0 = dt.datetime(2026, 11, 24, 9, 0, tzinfo=dt.UTC)
-
-
-class Clock:
-    def __init__(self) -> None:
-        self.now = T0
-
-    def __call__(self) -> dt.datetime:
-        return self.now
-
-    def advance(self, minutes: int) -> None:
-        self.now += dt.timedelta(minutes=minutes)
-
-
-class World:
-    def __init__(self, root: Path) -> None:
-        self.clock = Clock()
-        self.chat = FakeChat()
-        self.stores = Stores.at(root, self.clock)
-        self.desk = IncidentDesk(self.stores, self.chat, clock=self.clock)
-
-    def declare(self, text: str = "declare SEV-2 TMS orders failing +customer") -> str:
-        reply = self.desk.slash("C-general", "U-dana", text)
-        assert reply.startswith("Declared")
-        return self.chat.posts[-1].channel
-
-    def posts_in(self, channel: str) -> list[str]:
-        return [p.text for p in self.chat.posts if p.channel == channel]
-
-    def outside(self, channel: str) -> list[Any]:
-        return [p for p in self.chat.posts if p.channel != channel]
-
-
-@pytest.fixture
-def world(tmp_path: Path) -> World:
-    return World(tmp_path)
+from .conftest import World
 
 
 def test_declaring_opens_a_channel_and_posts_the_runbook_with_its_source(world: World) -> None:

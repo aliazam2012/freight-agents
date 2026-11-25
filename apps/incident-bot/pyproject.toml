@@ -13,7 +13,11 @@ dependencies = [
     "freight-agents-statecore",
     "freight-agents-knowledge",
     "freight-agents-evals",
+    "freight-agents-mcp",
 ]
+
+[project.scripts]
+freight-incidents = "freight_agents.incident_bot.cli:main"
 
 [tool.uv.sources]
 freight-agents-llm = { workspace = true }
@@ -21,6 +25,7 @@ freight-agents-agentcore = { workspace = true }
 freight-agents-statecore = { workspace = true }
 freight-agents-knowledge = { workspace = true }
 freight-agents-evals = { workspace = true }
+freight-agents-mcp = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]
