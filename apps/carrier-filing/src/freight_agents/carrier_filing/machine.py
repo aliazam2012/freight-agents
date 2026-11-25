@@ -22,6 +22,8 @@ FILING_MACHINE = StateMachine(
         Transition("filed", "acknowledged", "acknowledged"),
         Transition("filed", "ack_overdue", "followup_pending"),
         Transition("filed", "disposition_overdue", "followup_pending"),
+        # 370.9(b) status letters are owed whether or not the carrier ever acknowledged.
+        Transition("filed", "status_overdue", "followup_pending"),
         Transition("acknowledged", "disposition_overdue", "followup_pending"),
         Transition("acknowledged", "status_overdue", "followup_pending"),
         Transition("followup_pending", "acknowledged", "acknowledged"),

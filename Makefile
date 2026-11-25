@@ -32,6 +32,7 @@ eval:
 	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(sys.argv[1:]))" $(ARGS)
 	$(UV) run --all-packages freight-forecast eval --reports var/forecast/eval-reports
 	$(UV) run --all-packages freight-orders eval --reports var/orders/eval-reports
+	$(UV) run --all-packages freight-filing eval --reports var/filing/eval-reports
 
 # Backtest every forecasting model and write the dated report (about 20 seconds).
 forecast:

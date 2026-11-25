@@ -107,7 +107,12 @@ def main(argv: list[str] | None = None) -> int:
     show = commands.add_parser("show", help="print a claim and its history")
     show.add_argument("case_id")
     commands.add_parser("mcp", help="serve the read tools over MCP on stdio")
+    evaluate = commands.add_parser("eval", help="play every scenario and grade it")
+    evaluate.add_argument("--reports", type=Path, default=Path("apps/carrier-filing/evals/reports"))
+    evaluate.add_argument("--day", default=dt.date.today().isoformat())
     args = parser.parse_args(argv)
+    if args.command == "eval":
+        return _evaluate(args.reports, args.day)
 
     at = dt.datetime.fromisoformat(args.now) if getattr(args, "now", None) else None
     stores = Stores.at(args.state)
@@ -154,6 +159,19 @@ def _run(args: argparse.Namespace, desk: FilingDesk, stores: Stores) -> int:
         detail = event.payload.get("event") or ", ".join(sorted(event.payload.get("data", {})))
         print(f"  {event.seq:>3}  {event.at.isoformat()}  {event.type:<16} {detail}")
     return 0
+
+
+def _evaluate(reports: Path, day: str) -> int:
+    from freight_agents.carrier_filing.evaluation import FLOORS, run, write_report
+
+    result = run()
+    path = write_report(result, reports, day)
+    for name, value in result.metrics.items():
+        print(f"{name}: {value:.2f}")
+    failures = result.failures(FLOORS)
+    print(f"gate: {'passed' if not failures else 'failed: ' + '; '.join(failures)}")
+    print(f"report: {path}")
+    return 1 if failures else 0
 
 
 def _serve(desk: FilingDesk) -> int:

@@ -75,3 +75,19 @@ def test_a_resolved_claim_skips_every_timer(tmp_path: Path, clock: Clock) -> Non
     clock.now = dt.datetime(2027, 6, 1, tzinfo=dt.UTC)
     assert engine.fire_due(clock.now) == []
     assert engine.view(case).state == "resolved"
+
+
+def test_status_reminders_apply_even_if_the_carrier_never_acknowledged(
+    tmp_path: Path, clock: Clock
+) -> None:
+    from freight_agents.carrier_filing.deadlines import schedule_status
+
+    engine, case = _filed(tmp_path, clock)
+    for day in (dt.datetime(2027, 1, 2, tzinfo=dt.UTC), dt.datetime(2027, 4, 2, tzinfo=dt.UTC)):
+        clock.now = day
+        engine.fire_due(clock.now)
+        engine.fire(case, "followup_sent_unacknowledged", actor="test")
+    schedule_status(engine, case, dt.date(2027, 3, 31), ZONE)
+    clock.now = dt.datetime(2027, 6, 1, tzinfo=dt.UTC)
+    assert [t.event for t in engine.fire_due(clock.now)] == ["status_overdue"]
+    assert engine.view(case).state == "followup_pending"
