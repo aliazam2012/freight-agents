@@ -37,6 +37,7 @@ Freight operations run on email: claims, load tenders, carrier disputes. An agen
 - **Measured, not claimed.** A golden set with deterministic graders gates every change in CI, including red-team cases where the model falls for an injection on purpose and the guards must still hold.
 - **Sourced domain rules.** Claim rules come from 49 CFR Part 370 and 49 U.S.C. 14706, read at the source, retrieved with citations.
 - **Documents to transactions, exactly once.** Load tenders by EDI 204, PDF or email become one validated TMS order: code parses EDI, the model only reads free text, and writes carry idempotency keys a lost reply cannot duplicate.
+- **Vision with rules over the model.** Damage photos become findings through one strict tool; code turns findings and the claim's documents into a cited recommendation, and a deny or an inspect waits for a person.
 - **Classic machine learning, backtested.** Volume forecasts beat a seasonal-naive baseline in a rolling-origin backtest, with prediction ranges whose coverage is measured; the planner agent quotes only figures its tools return.
 
 ## Skills Shown
@@ -55,7 +56,7 @@ Each row points at the code or the public issue that proves it. Shipped means me
 | Sourced domain knowledge | [claim rules with citations](packages/knowledge/) | Shipped |
 | Clean room and supply chain | purity gate, private denylist, gitleaks, pip-audit, CodeQL, pinned actions | Shipped |
 | Running an engineering team | [ADRs](docs/adr/), [review checklist](docs/CHECKLIST-code-review.md), [release runbook](docs/RUNBOOK-release.md), [postmortem template](docs/TPL-postmortem.md), [milestones](https://github.com/aliazam2012/freight-agents/milestones) | Shipped |
-| Vision AI | damage-assessor | Planned, [v0.2](https://github.com/aliazam2012/freight-agents/issues/11) |
+| Vision AI with rules over the model | [damage-assessor](apps/damage-assessor/): findings through one strict tool, sourced rules, calibrated thresholds, [licensed image set](data/damage/README.md), [ADR-0014](docs/adr/ADR-0014-model-describes-code-decides.md) | Shipped; live vision run with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
 | Integrations and durable timers | [carrier-filing](apps/carrier-filing/): one claim filing per API, portal (headless Chromium) or email channel, 49 CFR 370 deadlines as timers, [ADR-0011](docs/adr/ADR-0011-one-filing-per-channel.md), [ADR-0012](docs/adr/ADR-0012-durable-deadlines.md) | Shipped |
 | Document AI (PDF, EDI) | [tms-orders](apps/tms-orders/): X12 204 parser and 990 writer, PDF and email extraction through one strict tool, [ADR-0009](docs/adr/ADR-0009-parsers-before-models.md) | Shipped; live PDF and email runs with [v0.1.0](https://github.com/aliazam2012/freight-agents/issues/10) |
 | Exactly-once writes over HTTP | [mock TMS](services/mock-tms/) with Idempotency-Key semantics, a [resilient client](apps/tms-orders/src/freight_agents/tms_orders/tms.py), [ADR-0010](docs/adr/ADR-0010-idempotency-at-the-api.md) | Shipped |
@@ -72,7 +73,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams, [docs/adr](do
 | Application | What it does | Version |
 |---|---|---|
 | claims-intake | Claim email in; triage, extraction with TMS lookup, the 49 CFR 370.3 minimum check and the filing window; asks the claimant for missing details after a person approves | v0.1 |
-| damage-assessor | Photos and description to a claim recommendation | planned, v0.2 |
+| damage-assessor | Damage photos to findings from a model, then a cited recommendation decided in code; files the amount through carrier-filing or waits for a person | v0.2 |
 | carrier-filing | Files a complete claim once through the carrier's API, portal or email; holds the carrier to the 30 and 120 day deadlines with approved follow-ups | v0.3 |
 | tms-orders | Load tender by EDI 204, PDF or email to one validated TMS order; a 990 or email reply after approval | v0.4 |
 | incident-bot | Runs an incident in its Slack channel: cadence reminders by severity, cited runbooks, approved customer updates, a blameless postmortem | v0.5 |
@@ -81,6 +82,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams, [docs/adr](do
 ## Results
 
 **claims-intake.** The reference run (scripted correct turns, plus red-team turns that fall for every injection) passes the gate: field accuracy 1.00, state accuracy 1.00, sends without approval 0, injection resisted 1.00. It proves the pipeline, hooks and graders, not a model: [report](apps/claims-intake/evals/reports/). Results for a real model come from a recorded run and are added with v0.1.0.
+
+**damage-assessor** ([report](apps/damage-assessor/evals/reports/2026-11-25-reference.md)): 43 hand-labeled shipments with synthetic and openly licensed photos; the rules decide 43 of 43 outcomes and amounts as written by hand, no amount passes the documented value, no deny or inspect is handed off without a person, and models fooled by text written on the freight move no money in 3 of 3 cases. Findings and calibration run in reference mode until a recorded run. A model that lies outright about damage is reported as a known limit.
 
 **incident-bot** ([report](apps/incident-bot/evals/reports/2026-11-24-reference.md)): 20 incidents played minute by minute against an in-memory Slack; reminders and customer-update reminders at exactly the hand-written expected minutes, 0 posts outside the incident channels, 0 customer updates without approval, every postmortem complete and blameless, 6 of 6 red-team cases resisted.
 
@@ -135,11 +138,12 @@ apps/claims-intake      claim email to a complete case
 apps/tms-orders         load tenders to exactly-once TMS orders
 apps/carrier-filing     claims filed once by API, portal or email; 49 CFR 370 deadlines
 apps/incident-bot       Slack incidents: cadence, runbooks, approved updates, postmortems
+apps/damage-assessor    damage photos to findings, findings to a cited recommendation
 apps/volume-forecast    backtested forecasts and the planner agent
 services/mock-tms       a made-up TMS order API with Idempotency-Key semantics
 services/mock-carrier   a made-up carrier claims API and web portal
 services/mock-kit       Idempotency-Key handling shared by the mock services
-data/                   the made-up inbox and TMS, and the generator that writes them
+data/                   the made-up inbox and TMS, damage images with their labels and licenses, and the generators
 ```
 
 ## Requirements
