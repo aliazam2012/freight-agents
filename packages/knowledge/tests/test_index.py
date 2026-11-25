@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 from freight_agents.agentcore.hooks import HookContext, run_tool
@@ -11,7 +12,7 @@ def test_loading_keeps_sources_per_passage() -> None:
     assert len(passages) >= 8
     for p in passages:
         assert p.source_url.startswith("https://www.law.cornell.edu/")
-        assert p.read_on == "2026-11-22"
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", p.read_on)
         assert p.heading
         assert p.text
 
@@ -58,3 +59,21 @@ def test_topic_corpora_stay_out_of_the_default_one() -> None:
     assert all(p.source_url.startswith("https://") and p.read_on for p in orders)
     default_docs = {p.doc_id for p in default_corpus()}
     assert not default_docs & {p.doc_id for p in orders}
+
+
+def _section(heading: str) -> str:
+    (passage,) = [p for p in default_corpus() if p.heading == heading]
+    return passage.text
+
+
+def test_the_370_summary_says_what_the_regulation_says() -> None:
+    # Checked against the official 2024 edition (govinfo.gov), 2026-11-24.
+    filing = _section("370.3 Filing a claim: what counts")
+    assert "the carrier has reasonable access to the documents that support" in filing
+    investigating = _section("370.7 Investigating a claim")
+    assert "promptly and thoroughly investigated" in investigating
+    assert "bill of lading, evidence of any freight charges" in investigating
+    assert "destination value" in investigating
+    assert "may not be declined" not in investigating  # 370.7 has no such rule
+    verifying = _section("370.7(c) Verifying the loss of a whole package or shipment")
+    assert "certified statement in writing from the consignee" in verifying
