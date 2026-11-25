@@ -5,7 +5,7 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 MYPYPATH := $(subst $(SPACE),:,$(SRC_DIRS))
 
-.PHONY: setup check lint types test data eval demo purity audit record forecast
+.PHONY: setup check lint types test data eval eval-recorded demo purity audit record forecast
 
 setup:
 	$(UV) sync --all-packages
@@ -36,6 +36,15 @@ eval:
 	$(UV) run --all-packages freight-incidents eval --reports var/incidents/eval-reports
 	$(UV) run --all-packages freight-damage eval --reports var/damage/eval-reports
 
+# Grade every app on its recorded cassettes; dated recorded reports go beside the reference ones.
+eval-recorded:
+	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(['--mode', 'recorded', '--report']))"
+	$(UV) run --all-packages freight-forecast eval --mode recorded
+	$(UV) run --all-packages freight-orders eval --mode recorded
+	$(UV) run --all-packages freight-filing eval --mode recorded
+	$(UV) run --all-packages freight-incidents eval --mode recorded
+	$(UV) run --all-packages freight-damage eval --mode recorded
+
 # Backtest every forecasting model and write the dated report (about 20 seconds).
 forecast:
 	$(UV) run --all-packages freight-forecast backtest
@@ -53,7 +62,8 @@ audit:
 	$(UV) tool run --python 3.12 pip-audit==2.9.0 -r .audit-requirements.txt --no-deps --disable-pip --progress-spinner off
 	rm -f .audit-requirements.txt
 
-# Spends money: records live model turns. Needs ANTHROPIC_API_KEY or an `ant auth login` profile.
-# Example: make record ARGS="--limit 3 --max-usd 1"
+# Spends money: records every app's live model turns under one cap. Needs ANTHROPIC_API_KEY.
+# Sample first and read the projection: make record ARGS="--sample 3 --max-usd 2"
+# Then, with the owner's approval of it:  make record ARGS="--max-usd <approved cap>"
 record:
-	$(UV) run --all-packages python -c "import sys; from freight_agents.claims_intake.evaluation import main; sys.exit(main(['--mode', 'record', *sys.argv[1:]]))" $(ARGS)
+	$(UV) run --all-packages python tools/record_all.py $(ARGS)

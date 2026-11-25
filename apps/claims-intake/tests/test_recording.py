@@ -46,3 +46,16 @@ def test_a_sample_prints_the_projected_full_cost(tmp_path: Path, capsys) -> None
         live_model=_priced_reference,
     )
     assert "projected for all 36 cases" in capsys.readouterr().out
+
+
+def test_a_stale_cassette_fails_recorded_mode_with_the_case_named(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    out = tmp_path / "cassettes"
+    evaluation.main(
+        ["--mode", "record", "--limit", "1", "--max-usd", "5", "--cassettes", str(out)],
+        live_model=_priced_reference,
+    )
+    (cassette,) = out.glob("*.jsonl")
+    cassette.write_text(cassette.read_text().replace('"key": "', '"key": "stale', 1))
+    code = evaluation.main(["--mode", "recorded", "--limit", "1", "--cassettes", str(out)])
+    assert code == 2
+    assert cassette.stem in capsys.readouterr().out

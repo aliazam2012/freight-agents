@@ -20,6 +20,7 @@ import json
 import re
 import tempfile
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from email import message_from_bytes
 from email.message import EmailMessage
@@ -34,7 +35,9 @@ from freight_agents.carrier_filing.channels import (
 from freight_agents.carrier_filing.desk import FilingDesk, Stores, scripted_reply
 from freight_agents.carrier_filing.domain import carrier_for, from_claims_case
 from freight_agents.claims_intake.domain import ClaimFields
+from freight_agents.evals.recording import RecordResult, record_cases, replay_model
 from freight_agents.integrations.http import CircuitBreaker, TokenBucket
+from freight_agents.llm import Model
 
 START = dt.datetime(2026, 12, 1, 16, 0, tzinfo=dt.UTC)  # 10:00 in Memphis
 DAYS = 200
@@ -46,6 +49,10 @@ CARRIER_OF = {
     "portal": "Example Motor Express",
     "email": "Example Truck Lines",
 }
+
+
+# Reads one carrier reply: (what the reply says, a send the red team slips in) -> a model.
+Reader = Callable[[dict[str, Any], dict[str, Any] | None], Model]
 
 
 @dataclass(frozen=True)
@@ -214,8 +221,10 @@ class Run:
         portal_url: str | None = None,
         portal_app: Any = None,
         make_api: Any = None,
+        reader: Reader | None = None,
     ) -> None:
         self.s, self.root, self.clock = s, root, clock
+        self.reader = reader
         self.stores = Stores.at(root / "state", self.clock)
         self.carrier = carrier_for(CARRIER_OF[s.channel])
         self.api = make_api(self.clock) if s.channel == "api" else None
@@ -271,7 +280,12 @@ class Run:
         folder = self.root / "replies"
         folder.mkdir(exist_ok=True)
         path = _reply(folder, self.replies, sender, f"RE: claim {self.case_id}", body)
-        self.desk.read_reply(path, scripted_reply(record, also_send=also_send))
+        # Red-team replies stay scripted: they test the guards, not the model.
+        if self.reader is None or self.s.attack:
+            model = scripted_reply(record, also_send=also_send)
+        else:
+            model = self.reader(record, also_send)
+        self.desk.read_reply(path, model)
 
     def approve_all(self) -> None:
         for item in self.stores.approvals.pending():
@@ -435,24 +449,30 @@ class Run:
         return [r[0] for r in db.execute("select status from approvals").fetchall()]
 
 
-def run(include_portal: bool = True) -> Result:
+def play_scenario(s: Scenario, root: Path, reader: Reader | None = None) -> dict[str, Any]:
+    """One scenario in its own world; the reader reads carrier replies, scripted if None."""
     from fastapi.testclient import TestClient
     from freight_agents.mock_carrier.app import create_app
 
+    if s.channel == "portal":
+        return _with_portal(s, root, reader)
+
+    def make_api(clock: Clock) -> Any:
+        return TestClient(create_app(scac="EXFL", clock=clock))
+
+    return Run(s, root, Clock(), make_api=make_api, reader=reader).play()
+
+
+def run(
+    include_portal: bool = True, readers: Callable[[Scenario], Reader | None] | None = None
+) -> Result:
     rows = []
     with tempfile.TemporaryDirectory() as tmp:
         for i, s in enumerate(scenarios()):
             if s.channel == "portal" and not include_portal:
                 continue
-            root = Path(tmp) / f"case-{i}"
-            if s.channel == "portal":
-                rows.append(_with_portal(s, root))
-                continue
-
-            def make_api(clock: Clock) -> Any:
-                return TestClient(create_app(scac="EXFL", clock=clock))
-
-            rows.append(Run(s, root, Clock(), make_api=make_api).play())
+            reader = readers(s) if readers else None
+            rows.append(play_scenario(s, Path(tmp) / f"case-{i}", reader))
 
     def share(key: str) -> float:
         return sum(bool(r[key]) for r in rows) / len(rows) if rows else 1.0
@@ -473,7 +493,7 @@ def run(include_portal: bool = True) -> Result:
     return Result(metrics, rows)
 
 
-def _with_portal(s: Scenario, root: Path) -> dict[str, Any]:
+def _with_portal(s: Scenario, root: Path, reader: Reader | None = None) -> dict[str, Any]:
     """A portal scenario: the mock portal served over HTTP for the browser, sharing the clock."""
     import threading
     import time
@@ -490,7 +510,7 @@ def _with_portal(s: Scenario, root: Path) -> dict[str, Any]:
         time.sleep(0.02)
     url = f"http://127.0.0.1:{server.servers[0].sockets[0].getsockname()[1]}"
     try:
-        return Run(s, root, clock, portal_url=url, portal_app=app).play()
+        return Run(s, root, clock, portal_url=url, portal_app=app, reader=reader).play()
     finally:
         server.should_exit = True
 
@@ -506,7 +526,56 @@ def _expirer(s: Scenario, clock: Clock) -> Any:
     return expire
 
 
-def write_report(result: Result, directory: Path, day: str) -> Path:
+def model_read_scenarios(include_portal: bool = True) -> list[Scenario]:
+    """Scenarios whose carrier answers by email, read by a model; not the red team."""
+    return [
+        s
+        for s in scenarios()
+        if s.attack is None and s.channel != "api" and (include_portal or s.channel != "portal")
+    ]
+
+
+def run_recorded(cassettes: Path, model_name: str, include_portal: bool = True) -> Result:
+    """The same scenarios and graders, with carrier replies read by a real model's turns."""
+    read = {s.id for s in model_read_scenarios(include_portal)}
+
+    def readers(s: Scenario) -> Reader | None:
+        if s.id not in read:
+            return None
+        return lambda record, also: replay_model(s.id, cassettes, model_name)
+
+    return run(include_portal, readers)
+
+
+def record(
+    cassettes: Path,
+    live: Callable[[str], Model],
+    cap: float,
+    limit: int | None = None,
+    include_portal: bool = True,
+    out: Callable[[str], object] = print,
+) -> RecordResult:
+    """Record a live model reading every carrier reply, scenario by scenario, under the cap."""
+    chosen = model_read_scenarios(include_portal)
+    by_id = {s.id: s for s in chosen}
+
+    def run_one(case_id: str, model: Model) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            play_scenario(by_id[case_id], Path(tmp), reader=lambda record, also: model)
+
+    ids = list(by_id)
+    return record_cases(
+        ids[:limit] if limit else ids, run_one, live, cassettes, cap, total=len(ids), out=out
+    )
+
+
+def write_report(
+    result: Result,
+    directory: Path,
+    day: str,
+    mode: str = "reference",
+    model: str | None = None,
+) -> Path:
     failures = result.failures(FLOORS)
     gate = "passed" if not failures else "failed: " + "; ".join(failures)
     m = result.metrics
@@ -526,8 +595,13 @@ def write_report(result: Result, directory: Path, day: str) -> Path:
         f"Cases: {int(m['cases'])} scenarios played for {DAYS} days each (three channels, "
         f"carrier timings at the 370 boundaries, faults, and red-team replies). Gate: {gate}.",
         "",
-        "Channels, timers and guards are real; carrier replies are read in reference mode. "
-        "A person approves every send the day it is drafted.",
+        (
+            "Channels, timers and guards are real; carrier replies are read in reference mode. "
+            if mode == "reference"
+            else "Channels, timers and guards are real; carrier replies are read by the "
+            f"recorded turns of {model}, red-team replies by a scripted model that obeys them. "
+        )
+        + "A person approves every send the day it is drafted.",
         "",
         "## Metrics",
         "",
@@ -547,8 +621,8 @@ def write_report(result: Result, directory: Path, day: str) -> Path:
         ],
     ]
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{day}-reference.md"
+    path = directory / f"{day}-{mode}.md"
     path.write_text("\n".join(lines) + "\n")
-    latest = {"date": day, "mode": "reference", "metrics": m}
+    latest = {"date": day, "mode": mode, "model": model, "metrics": m}
     (directory / "latest.json").write_text(json.dumps(latest, indent=2, sort_keys=True) + "\n")
     return path
