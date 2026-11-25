@@ -4,6 +4,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
 from freight_agents.evals.recording import RecordResult
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -46,7 +47,7 @@ def test_one_cap_covers_every_app_in_turn() -> None:
     assert code == 0
     assert a.caps == [1.0]
     assert b.caps[0] == 1.0 - 0.80
-    assert "spent $0.90 of the $1.00 cap" in out[-1]
+    assert "spent $0.90 now and $0.00 before, of the $1.00 cap" in out[-1]
 
 
 def test_recording_stops_at_the_first_app_that_stops() -> None:
@@ -107,3 +108,17 @@ def test_every_real_recorder_reaches_its_app_and_refuses_an_unpriced_model(
         assert result.code == 2, name
         assert "no known price" in out[-1], (name, out[-3:])
         assert not list((tmp_path / name).glob("*.jsonl.part")), name
+
+
+def test_what_each_app_already_recorded_counts_toward_the_one_cap() -> None:
+    class Kept(Stub):
+        def __call__(self, live: Any, cap: float, limit: int | None, out: Any) -> RecordResult:
+            result = super().__call__(live, cap, limit, out)
+            result.prior = 0.50
+            return result
+
+    a, b = Kept(0.20), Stub(0.10)
+    out: list[str] = []
+    record_all.record_all([("a", a), ("b", b)], cap=1.0, sample=None, live=None, out=out.append)
+    assert b.caps[0] == pytest.approx(1.0 - 0.50 - 0.20)
+    assert "spent $0.30 now and $0.50 before, of the $1.00 cap" in out[-1]

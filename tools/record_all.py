@@ -123,18 +123,20 @@ def record_all(
     if cap <= 0:
         out("recording spends money: pass --max-usd with the approved cap")
         return 2
-    spent = projected = 0.0
+    now = before = projected = 0.0
     for name, recorder in recorders:
-        result = recorder(live, cap - spent, sample, lambda line, n=name: out(f"[{n}] {line}"))
-        spent += result.spent
-        whole = result.projected if result.projected is not None else result.spent
+        left = cap - now - before
+        result = recorder(live, left, sample, lambda line, n=name: out(f"[{n}] {line}"))
+        now, before = now + result.spent, before + result.prior
+        whole = result.projected if result.projected is not None else result.spent + result.prior
         projected += whole
         out(f"{name}: ${result.spent:.2f} spent, ${whole:.2f} projected")
+        totals = f"spent ${now:.2f} now and ${before:.2f} before, of the ${cap:.2f} cap"
         if result.code != 0:
-            out(f"stopped in {name}: spent ${spent:.2f} of the ${cap:.2f} cap")
+            out(f"stopped in {name}: {totals}")
             return 2
     tail = f"; ${projected:.2f} projected for every app" if sample else ""
-    out(f"spent ${spent:.2f} of the ${cap:.2f} cap{tail}")
+    out(f"spent ${now:.2f} now and ${before:.2f} before, of the ${cap:.2f} cap{tail}")
     return 0
 
 

@@ -12,6 +12,7 @@ known price is refused, since its cost could not be held to anything.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,10 +55,21 @@ class MeteredModel:
         return turn
 
 
+def cassette_cost(path: Path, prices: Mapping[str, Price] | None = None) -> float:
+    """What a recorded case cost, priced from the usage its turns carry."""
+    total = 0.0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            turn = ModelTurn.model_validate(json.loads(line)["turn"])
+            total += cost_usd(turn.model, turn.usage, prices) or 0.0
+    return total
+
+
 @dataclass
 class RecordResult:
     code: int
-    spent: float = 0.0
+    spent: float = 0.0  # in this run
+    prior: float = 0.0  # what the cassettes already on disk cost when they were recorded
     recorded: list[str] = field(default_factory=list)
     kept: list[str] = field(default_factory=list)
     projected: float | None = None
@@ -84,9 +96,13 @@ def record_cases(
     for case_id in case_ids:
         final = cassettes / f"{case_id}.jsonl"
         if final.exists():
+            # Already paid for: it counts toward the cap and informs the next estimate.
+            cost = cassette_cost(final, prices)
+            result.prior += cost
+            largest = max(largest, cost)
             result.kept.append(case_id)
             continue
-        if result.spent + largest > cap:
+        if result.prior + result.spent + largest > cap:
             out(f"stopped before {case_id}: it could pass the ${cap:.2f} spending cap")
             result.code = 2
             return result
@@ -114,12 +130,10 @@ def record_cases(
         out(
             f"{case_id:<28} {meter.tokens:>8} tokens  ${meter.spent:.4f}  total ${result.spent:.4f}"
         )
-    if total is not None and result.recorded and total > len(case_ids):
-        result.projected = result.spent / len(result.recorded) * total
-        out(
-            f"${result.projected:.2f} projected for all {total} cases "
-            f"(from {len(result.recorded)} recorded)"
-        )
+    done = len(result.recorded) + len(result.kept)
+    if total is not None and done and total > done:
+        result.projected = (result.prior + result.spent) / done * total
+        out(f"${result.projected:.2f} projected for all {total} cases (from {done} recorded)")
     return result
 
 

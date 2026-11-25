@@ -118,3 +118,16 @@ def test_a_case_that_never_calls_the_model_records_an_empty_cassette(tmp_path: P
     assert result.code == 0
     assert (tmp_path / "quiet.jsonl").read_text() == ""
     assert replay("quiet", tmp_path, "claude-opus-5-5", lambda c, m: "no calls") == "no calls"
+
+
+def test_cassettes_already_recorded_count_toward_the_cap(tmp_path: Path) -> None:
+    # The sample's spending is part of the approved total, and its costliest case is
+    # the estimate for the next one.
+    record_cases(["a"], run_one, lambda c: priced(), tmp_path, 5.0, out=lambda s: None)
+    out: list[str] = []
+    result = record_cases(["a", "b"], run_one, lambda c: priced(), tmp_path, 0.60, out=out.append)
+    assert result.code == 2
+    assert result.prior == pytest.approx(0.40)
+    assert result.spent == 0.0
+    assert not (tmp_path / "b.jsonl").exists()
+    assert "before b" in out[-1]
