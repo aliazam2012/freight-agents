@@ -15,6 +15,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from freight_agents.evals.recording import StaleCassette, record_cases, replay
 from freight_agents.evals.runner import (
     CaseRun,
     GoldenCase,
@@ -26,7 +27,7 @@ from freight_agents.evals.runner import (
 )
 from freight_agents.integrations.email import parse_eml
 from freight_agents.integrations.tms import FixtureTms
-from freight_agents.llm import Model, ModelTurn, RecordingModel, ReplayModel, ScriptedModel
+from freight_agents.llm import Model, ModelTurn, ReplayModel, ScriptedModel
 
 from .workflow import ClaimsIntake, Stores
 
@@ -82,25 +83,17 @@ LiveModel = Callable[[GoldenCase], Model]
 def record(
     cases: list[GoldenCase], total: int, live: LiveModel, cassettes: Path, root: Path, cap: float
 ) -> int:
-    """Record live turns case by case; stop before spending more than the cap."""
-    cassettes.mkdir(parents=True, exist_ok=True)
-    spent = 0.0
-    for done, case in enumerate(cases, 1):
-        path = cassettes / f"{case.id}.jsonl"
-        path.unlink(missing_ok=True)
-        run = run_case(case, RecordingModel(live(case), path), root)
-        if run.cost_usd is None:
-            print(f"{case.id}: the model has no known price; refusing to record blind")
-            return 2
-        spent += run.cost_usd
-        print(f"{case.id:<28} {run.tokens:>7} tokens  ${run.cost_usd:.4f}  total ${spent:.4f}")
-        if spent > cap:
-            print(f"spending cap ${cap:.2f} reached after {done} cases; stopped")
-            return 2
-    if len(cases) < total:
-        projected = spent / len(cases) * total
-        print(f"${projected:.2f} projected for all {total} cases (from {len(cases)} recorded)")
-    return 0
+    """Record live turns case by case under the cap; see freight_agents.evals.recording."""
+    by_id = {case.id: case for case in cases}
+    result = record_cases(
+        list(by_id),
+        lambda case_id, model: run_case(by_id[case_id], model, root),
+        lambda case_id: live(by_id[case_id]),
+        cassettes,
+        cap,
+        total=total,
+    )
+    return result.code
 
 
 def main(argv: list[str] | None = None, live_model: LiveModel | None = None) -> int:
@@ -132,12 +125,19 @@ def main(argv: list[str] | None = None, live_model: LiveModel | None = None) -> 
 
     mode: Mode = args.mode
     label = "reference" if mode == "reference" else args.model_name
-    result = run_suite(
-        cases,
-        lambda c: run_case(c, model_for(c, mode, cassettes, args.model_name), root),
-        mode,
-        label,
-    )
+
+    def one(case: GoldenCase) -> CaseRun:
+        if mode == "reference":
+            return run_case(case, model_for(case, mode, cassettes, args.model_name), root)
+        return replay(
+            case.id, cassettes, args.model_name, lambda _, model: run_case(case, model, root)
+        )
+
+    try:
+        result = run_suite(cases, one, mode, label)
+    except StaleCassette as exc:
+        print(f"FAIL {exc}")
+        return 2
     floors = tomllib.loads((evals_dir / "floors.toml").read_text())["floors"]
     failures = gate(result, {k: (v[0], float(v[1])) for k, v in floors.items()})
     for name, value in result.metrics.items():
