@@ -104,6 +104,14 @@ uv run freight-claims --state var/live pending
 
 For OpenAI, pass `--model openai --model-name <model id>` with `OPENAI_API_KEY` set.
 
+To measure a real model across all six apps, record their evaluations under one spending cap, then replay the recordings through the same graders (see [the release runbook](docs/RUNBOOK-release.md)):
+
+```bash
+make record ARGS="--sample 3 --max-usd 2"   # three cases per app: prints the projected cost of the rest
+make record ARGS="--max-usd <approved cap>" # everything, under one cap; resumes if stopped
+make eval-recorded                          # replay every cassette through the same floors
+```
+
 ## Use It From Claude Code or Codex
 
 `freight-claims mcp` serves the claims tools over MCP: read a case, list emails waiting for approval, look up a shipment, search the claim rules, and ask for missing details. That last one runs through the same hooks as the agents and stops in the approval queue; no MCP tool approves or sends.
