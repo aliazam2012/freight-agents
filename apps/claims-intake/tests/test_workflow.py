@@ -2,6 +2,7 @@ import io
 from contextlib import redirect_stdout
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from freight_agents.claims_intake import cli
@@ -128,3 +129,64 @@ def test_a_failed_send_keeps_the_approval_for_a_retry(make_intake, tmp_path: Pat
     assert case.state == "awaiting_reply"
     assert len(_sent(tmp_path)) == 1
     assert intake.stores.approvals.status(approval_id) == "used"
+
+
+def _with_photo(body: str, filename: str = "crushed.png") -> Any:
+    from email.message import EmailMessage as Mime
+
+    from freight_agents.integrations.email import parse_eml
+
+    msg = Mime()
+    msg["Message-ID"] = f"<{abs(hash((body, filename)))}@example.com>"
+    msg["From"] = "Dana Reyes <dana@example.com>"
+    msg["To"] = "claims@example.org"
+    msg["Subject"] = "Damage claim PRO 7741-2209"
+    msg["Date"] = "Mon, 16 Nov 2026 09:30:00 -0800"
+    msg.set_content(body)
+    msg.add_attachment(b"\x89PNG photo", maintype="image", subtype="png", filename=filename)
+    return parse_eml(msg.as_bytes())
+
+
+class FakeAssessor:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, Any, Any]] = []
+
+    def assess(self, case_id: str, fields: Any, message: Any) -> None:
+        self.calls.append((case_id, fields, message))
+
+
+def test_a_damage_claim_with_photos_goes_to_the_assessor(make_intake) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(FIELDS))
+    intake.assessor = assessor = FakeAssessor()
+    case = intake.process(_with_photo("4 chairs broken, claiming $800, PRO 7741-2209."))
+    ((case_id, fields, message),) = assessor.calls
+    assert case_id == case.case_id
+    assert fields.claim_type == "damage"
+    assert [a.filename for a in message.attachments] == ["crushed.png"]
+    assert case.state == "ready_to_file"  # the assessor hands it off, or a person does
+
+
+def test_a_claim_without_photos_is_not_assessed(make_intake) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(FIELDS))
+    intake.assessor = assessor = FakeAssessor()
+    intake.process(email("4 chairs broken, claiming $800.", attach="invoice.pdf"))
+    assert assessor.calls == []
+
+
+def test_hand_off_files_the_assessed_amount_and_keeps_the_claimants(make_intake) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(FIELDS))
+    case = intake.process(email("4 chairs broken, claiming $800, PRO 7741-2209."))
+    handed = intake.hand_off(case.case_id, 600.0, {"outcome": "file_partial"})
+    assert handed.state == "handed_off"
+    assert handed.data["fields"]["claimed_amount_usd"] == 600.0
+    assert handed.data["claimant_amount_usd"] == 800.0
+    assert handed.data["assessment"] == {"outcome": "file_partial"}
+
+
+@pytest.mark.parametrize("amount", [900.0, 0.0, -5.0])
+def test_hand_off_refuses_an_amount_the_claim_does_not_support(make_intake, amount: float) -> None:  # type: ignore[no-untyped-def]
+    intake = make_intake(triage() + extraction(FIELDS))
+    case = intake.process(email("4 chairs broken, claiming $800, PRO 7741-2209."))
+    with pytest.raises(ValueError, match="amount"):
+        intake.hand_off(case.case_id, amount, {"outcome": "file_full"})
+    assert intake.stores.engine.view(case.case_id).state == "ready_to_file"

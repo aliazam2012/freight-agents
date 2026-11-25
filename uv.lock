@@ -707,8 +707,12 @@ version = "0.1.0"
 source = { editable = "apps/damage-assessor" }
 dependencies = [
     { name = "freight-agents-agentcore" },
+    { name = "freight-agents-claims-intake" },
+    { name = "freight-agents-integrations" },
     { name = "freight-agents-knowledge" },
     { name = "freight-agents-llm" },
+    { name = "freight-agents-mcp" },
+    { name = "freight-agents-statecore" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
@@ -716,8 +720,12 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "freight-agents-agentcore", editable = "packages/agentcore" },
+    { name = "freight-agents-claims-intake", editable = "apps/claims-intake" },
+    { name = "freight-agents-integrations", editable = "packages/integrations" },
     { name = "freight-agents-knowledge", editable = "packages/knowledge" },
     { name = "freight-agents-llm", editable = "packages/llm" },
+    { name = "freight-agents-mcp", editable = "packages/mcp" },
+    { name = "freight-agents-statecore", editable = "packages/statecore" },
     { name = "pillow", specifier = ">=11.0" },
     { name = "pydantic", specifier = ">=2.7" },
 ]

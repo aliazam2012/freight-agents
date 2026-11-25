@@ -10,12 +10,23 @@ dependencies = [
     "freight-agents-llm",
     "freight-agents-agentcore",
     "freight-agents-knowledge",
+    "freight-agents-statecore",
+    "freight-agents-integrations",
+    "freight-agents-claims-intake",
+    "freight-agents-mcp",
 ]
+
+[project.scripts]
+freight-damage = "freight_agents.damage_assessor.cli:main"
 
 [tool.uv.sources]
 freight-agents-llm = { workspace = true }
 freight-agents-agentcore = { workspace = true }
 freight-agents-knowledge = { workspace = true }
+freight-agents-statecore = { workspace = true }
+freight-agents-integrations = { workspace = true }
+freight-agents-claims-intake = { workspace = true }
+freight-agents-mcp = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]

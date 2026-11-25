@@ -149,3 +149,25 @@ def test_practice_is_labeled_and_cites_no_law() -> None:
         assert source.id.startswith("practice:")
         with pytest.raises(LookupError):
             passage(source.id)
+
+
+def test_an_amount_needs_a_documented_value_but_an_inspect_does_not() -> None:
+    with pytest.raises(ValidationError):
+        Assessment(
+            claim_id="CLM-1",
+            documented_value_usd=None,
+            findings=[crushed()],
+            recommendation=filed("100.00"),
+            assessed_at=AT,
+            mode="reference",
+        )
+    inspect = Recommendation(outcome=Outcome.INSPECT, amount_usd=None, evidence=filed().evidence)
+    assessment = Assessment(
+        claim_id="CLM-1",
+        documented_value_usd=None,
+        findings=[],
+        recommendation=inspect,
+        assessed_at=AT,
+        mode="reference",
+    )
+    assert assessment.documented_value_usd is None

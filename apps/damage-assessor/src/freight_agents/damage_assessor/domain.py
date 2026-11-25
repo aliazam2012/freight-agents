@@ -78,7 +78,7 @@ class Recommendation(_Frozen):
 
 class Assessment(_Frozen):
     claim_id: str
-    documented_value_usd: Decimal = Field(ge=0)
+    documented_value_usd: Decimal | None = Field(ge=0)  # None: no invoice or TMS value found
     findings: list[Finding]
     recommendation: Recommendation
     assessed_at: dt.datetime
@@ -86,8 +86,10 @@ class Assessment(_Frozen):
 
     @model_validator(mode="after")
     def _amount_within_documented_value(self) -> Self:
-        amount = self.recommendation.amount_usd
-        if amount is not None and amount > self.documented_value_usd:
+        amount, value = self.recommendation.amount_usd, self.documented_value_usd
+        if amount is not None and value is None:
+            raise ValueError("an amount needs a documented value")
+        if amount is not None and value is not None and amount > value:
             raise ValueError(
                 f"recommended {amount} is above the documented value {self.documented_value_usd}"
             )
