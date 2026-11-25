@@ -107,3 +107,14 @@ def test_a_replay_model_names_its_case_when_the_request_changed(tmp_path: Path) 
         run_one("a, changed", model)
     with pytest.raises(StaleCassette, match="b: no cassette"):
         replay_model("b", tmp_path, "claude-opus-5-5")
+
+
+def test_a_case_that_never_calls_the_model_records_an_empty_cassette(tmp_path: Path) -> None:
+    from freight_agents.evals.recording import replay
+
+    result = record_cases(
+        ["quiet"], lambda c, m: None, lambda c: priced(), tmp_path, 5.0, out=lambda s: None
+    )
+    assert result.code == 0
+    assert (tmp_path / "quiet.jsonl").read_text() == ""
+    assert replay("quiet", tmp_path, "claude-opus-5-5", lambda c, m: "no calls") == "no calls"

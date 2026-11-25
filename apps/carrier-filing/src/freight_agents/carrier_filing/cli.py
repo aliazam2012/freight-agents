@@ -13,6 +13,7 @@ from freight_agents.carrier_filing.channels import ApiChannel, EmailChannel, Por
 from freight_agents.carrier_filing.desk import FilingDesk, Stores
 from freight_agents.carrier_filing.domain import carrier_for
 from freight_agents.integrations.http import CircuitBreaker, TokenBucket
+from freight_agents.llm import Model
 
 DEFAULT_STATE = Path("var/filing")
 DEFAULT_CLAIMS = Path("var/claims")
@@ -110,9 +111,18 @@ def main(argv: list[str] | None = None) -> int:
     evaluate = commands.add_parser("eval", help="play every scenario and grade it")
     evaluate.add_argument("--reports", type=Path, default=Path("apps/carrier-filing/evals/reports"))
     evaluate.add_argument("--day", default=dt.date.today().isoformat())
+    evaluate.add_argument(
+        "--mode", choices=["reference", "recorded", "record"], default="reference"
+    )
+    evaluate.add_argument(
+        "--cassettes", type=Path, default=Path("apps/carrier-filing/evals/cassettes")
+    )
+    evaluate.add_argument("--model-name", default="claude-opus-5-5")
+    evaluate.add_argument("--max-usd", type=float, default=0.0, help="record: the approved cap")
+    evaluate.add_argument("--limit", type=int, help="record: only the first N scenarios")
     args = parser.parse_args(argv)
     if args.command == "eval":
-        return _evaluate(args.reports, args.day)
+        return _evaluate(args)
 
     at = dt.datetime.fromisoformat(args.now) if getattr(args, "now", None) else None
     stores = Stores.at(args.state)
@@ -161,11 +171,32 @@ def _run(args: argparse.Namespace, desk: FilingDesk, stores: Stores) -> int:
     return 0
 
 
-def _evaluate(reports: Path, day: str) -> int:
-    from freight_agents.carrier_filing.evaluation import FLOORS, run, write_report
+def _evaluate(args: argparse.Namespace) -> int:
+    from freight_agents.carrier_filing.evaluation import (
+        FLOORS,
+        record,
+        run,
+        run_recorded,
+        write_report,
+    )
+    from freight_agents.evals.recording import StaleCassette
 
-    result = run()
-    path = write_report(result, reports, day)
+    if args.mode == "record":
+        from freight_agents.llm.anthropic_adapter import AnthropicModel
+
+        def live(case_id: str) -> Model:
+            return AnthropicModel(model=args.model_name, effort="low")
+
+        return record(args.cassettes, live, args.max_usd, args.limit).code
+    try:
+        result = (
+            run() if args.mode == "reference" else run_recorded(args.cassettes, args.model_name)
+        )
+    except StaleCassette as exc:
+        print(f"FAIL {exc}")
+        return 2
+    model = None if args.mode == "reference" else args.model_name
+    path = write_report(result, args.reports, args.day, args.mode, model)
     for name, value in result.metrics.items():
         print(f"{name}: {value:.2f}")
     failures = result.failures(FLOORS)

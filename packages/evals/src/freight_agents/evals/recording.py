@@ -106,6 +106,7 @@ def record_cases(
             out(f"{case_id}: {type(exc).__name__}: {exc}; nothing kept for this case")
             result.code = 2
             return result
+        part.touch()  # a case that never called the model keeps an empty cassette
         part.replace(final)
         result.spent += meter.spent
         largest = max(largest, meter.spent)
