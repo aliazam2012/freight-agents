@@ -49,7 +49,7 @@ from freight_agents.incident_bot.policy import POLICY, runbook_index
 from freight_agents.incident_bot.slack_app import SeenEvents
 from freight_agents.llm import ToolCall
 from freight_agents.statecore.engine import CaseEngine, Timer
-from freight_agents.statecore.machine import CaseView
+from freight_agents.statecore.machine import CaseView, IllegalTransition
 from freight_agents.statecore.store import SqliteEventStore
 from pydantic import BaseModel
 
@@ -188,7 +188,15 @@ class IncidentDesk:
         handler = handlers.get(verb)
         if handler is None:
             return "Commands: sev, role, status, resolve, runbook, summary, customer, postmortem."
-        return handler(case, user, rest)
+        try:
+            return handler(case, user, rest)
+        except IllegalTransition:
+            # The machine refused before anything was written: say so plainly.
+            return self._not_now(case, verb)
+
+    def _not_now(self, case: CaseView, verb: str) -> str:
+        state = case.state.replace("_", " ")
+        return f"{case.case_id} is {state}, so `/incident {verb}` does not apply now."
 
     def declare(self, user: str, rest: str) -> str:
         with self._lock:
@@ -309,11 +317,12 @@ class IncidentDesk:
         }
         status = moves.get(words[0].lower()) if words else None
         text = " ".join(words[1:] if status else words) or "no detail"
-        updated = incident.model_copy(update={"status": status or incident.status})
-        case = self._record(case, "status_update", updated, "status", user, text)
         if status is not None and status != incident.status:
+            # Move first: a move the machine refuses leaves the record untouched.
             event = "regressed" if status == Status.INVESTIGATING else status.value
             case = self.stores.engine.fire(case.case_id, event, actor=user)
+        updated = incident.model_copy(update={"status": status or incident.status})
+        case = self._record(case, "status_update", updated, "status", user, text)
         reschedule(self.stores.engine, case.case_id, self.clock(), internal=True, customer=False)
         return f"Status recorded: {updated.status}."
 
@@ -397,8 +406,10 @@ class IncidentDesk:
         return str(approval) if approval else None
 
     def _postmortem(self, case: CaseView, user: str, rest: str) -> str:
-        if case.state != "resolved":
+        if case.state in OPEN:
             return "Resolve the incident first."
+        if case.state != "resolved":
+            return self._not_now(case, "postmortem")
         incident = self.incident(case)
         result = draft(
             "postmortem",
@@ -522,9 +533,10 @@ class IncidentDesk:
                 f"person:{approver}",
                 str(approval.args["text"]),
             )
-            reschedule(
-                self.stores.engine, case.case_id, self.clock(), internal=False, customer=True
-            )
+            if case.state in OPEN:  # no customer reminders once it is resolved
+                reschedule(
+                    self.stores.engine, case.case_id, self.clock(), internal=False, customer=True
+                )
         return self.stores.engine.view(case.case_id)
 
     # Tools and hooks.

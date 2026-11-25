@@ -277,3 +277,42 @@ def test_a_failed_reminder_post_keeps_reminders_coming_for_every_incident(
     world.clock.advance(30)
     world.desk.tick()
     assert "reminder: time for a status update" in world.posts_in(failed)[-1]
+
+
+def test_commands_that_do_not_apply_now_get_a_plain_answer(world: World) -> None:
+    channel = world.declare()
+    world.desk.slash(channel, "U-dana", "resolve orders flowing again")
+    for command in ("resolve again", "status late note", "sev SEV-1", "role operations @U-lee"):
+        reply = world.desk.slash(channel, "U-dana", command)
+        verb = command.split()[0]
+        assert reply == f"inc-1 is resolved, so `/incident {verb}` does not apply now."
+    world.desk.slash(channel, "U-dana", "postmortem")
+    assert world.desk.slash(channel, "U-dana", "postmortem") == (
+        "inc-1 is postmortem drafted, so `/incident postmortem` does not apply now."
+    )
+    case = world.desk.case_for(channel)
+    assert case is not None
+    assert case.state == "postmortem_drafted"
+
+
+def test_status_can_go_back_from_monitoring_to_identified(world: World) -> None:
+    channel = world.declare()
+    world.desk.slash(channel, "U-dana", "status monitoring fix deployed")
+    reply = world.desk.slash(channel, "U-dana", "status identified it came back, same cause")
+    assert reply == "Status recorded: identified."
+    case = world.desk.case_for(channel)
+    assert case is not None
+    assert case.state == case.data["incident"]["status"] == "identified"
+
+
+def test_a_customer_update_approved_after_resolution_goes_on_the_timeline(world: World) -> None:
+    channel = world.declare()
+    world.desk.slash(channel, "U-dana", "resolve orders flowing again")
+    approval = world.desk.slash(channel, "U-dana", "customer").rsplit(" ", 1)[-1].rstrip(".")
+    far = world.clock.now + dt.timedelta(days=1)
+    timers = len(world.stores.engine.due(far))
+    world.desk.approve(approval, "U-lee")
+    case = world.desk.case_for(channel)
+    assert case is not None
+    assert case.data["incident"]["timeline"][-1]["kind"] == "customer_update"
+    assert len(world.stores.engine.due(far)) == timers  # no reminders after resolution

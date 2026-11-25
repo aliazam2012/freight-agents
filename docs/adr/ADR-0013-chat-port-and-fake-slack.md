@@ -21,3 +21,5 @@ The bot talks to chat through a `ChatPort` with three operations it needs: post 
 ## Consequences
 
 Every incident behavior, from cadence reminders to approvals, is tested and evaluated without Slack. What the contract test cannot cover is Slack itself changing; a smoke run in a real workspace before a release covers that. The port stays small on purpose: a new Slack feature the bot needs means a new port operation, a fake behavior and a contract check.
+
+The fake runs everything on one thread; a real workspace does not. Bolt handles each event on a worker thread and `serve` fires reminders on another, so the stores share their connection under a lock, the desk runs its entry points one at a time, and tests drive the stores and the desk from worker threads at once. The self-review before this pull request merged found that gap: the one-thread tests had passed while `serve` could not have run.
